@@ -100,8 +100,8 @@ CqlSession session = CqlSession.builder()
 
 ### Dependencies
 
-Similar to the existing query builder feature, this functionality will include a module named `java-driver-open-telemetry` that will handle the spans'generation.\
-`java-driver-open-telemetry` has dependencies from the following packages:
+Similar to the existing query builder feature, this functionality will include a module named `java-driver-open-telemetry` that will handle the spans' generation.\
+`java-driver-open-telemetry` will have dependencies from the following packages:
 
 ```xml
 <dependencyManagement>
@@ -211,7 +211,7 @@ It will create a parent span of operation name `Session Request` on `onRequestCr
 # Rationale and alternatives
 [rationale-and-alternatives]: #rationale-and-alternatives
 
-## Using `opentelemetry-semconv` package
+## Not using `opentelemetry-semconv` package
 
 The [semantic conventions](https://opentelemetry.io/docs/specs/semconv/) are a fast evolving reference that "define a common set of (semantic) attributes which provide meaning to data when collecting, producing and consuming it.".\
 As its changes can be hard to follow, OpenTelemetry provides a package named [`opentelemetry-semconv`](https://github.com/open-telemetry/semantic-conventions-java) that generate Java code for semantic conventions. Using this package will allow the Apache Cassandra project to have its tracing attributes up-to-date to the conventions with less maintenance, however, as it's still marked as non-stable (current version is `1.29.0-alpha`), it is not included in this proposal.
@@ -219,7 +219,7 @@ As its changes can be hard to follow, OpenTelemetry provides a package named [`o
 # Prior art
 [prior-art]: #prior-art
 
-OpenTelemetry has https://github.com/open-telemetry/opentelemetry-java-instrumentation/tree/main/instrumentation/cassandra/cassandra-4.4/libraryfor Apache Cassandra Java Driver, but it requires the user to run the Java agent.
+OpenTelemetry has [instrumentation](https://github.com/open-telemetry/opentelemetry-java-instrumentation/tree/main/instrumentation/cassandra/cassandra-4.4/library) for Apache Cassandra Java Driver, but it requires the user to run the Java agent.
 
 
 There are other DBMS implementations regarding the export of telemetry data in client-side calls in the java ecosystem:
@@ -229,8 +229,8 @@ There are other DBMS implementations regarding the export of telemetry data in c
 
 Apache Cassandra also has client-side implementations in other languages in the form of contribution projects, as listed below:
 
-- [NodeJS](https://github.com/open-telemetry/opentelemetry-js-contrib/tree/main/plugins/node/opentelemetry-instrumentation-cassandra) (Community contribution)
-- [Python](https://github.com/open-telemetry/opentelemetry-python-contrib/tree/main/instrumentation/opentelemetry-instrumentation-cassandra) (Community contribution)
+- [NodeJS](https://github.com/open-telemetry/opentelemetry-js-contrib/tree/main/plugins/node/opentelemetry-instrumentation-cassandra) 
+- [Python](https://github.com/open-telemetry/opentelemetry-python-contrib/tree/main/instrumentation/opentelemetry-instrumentation-cassandra) 
 
 # Future possibilities
 [future-possibilities]: #future-possibilities
@@ -244,7 +244,7 @@ For example, we can include the following configuration options:
 
 ```
 datastax-java-driver {
-  advanced{
+  advanced {
       open-telemetry {
           attributes {
               db.statement = false
@@ -257,7 +257,7 @@ datastax-java-driver {
 
 ### Adopt `opentelemetry-semconv` and include missing recommended attributes
 
-When `opentelemetry-semconv` becomes stable, the project can adopt it to generate the semantic conventions for the Cassandra driver.\
+When `opentelemetry-semconv` becomes stable, the project can adopt it to generate the semantic conventions for the Cassandra driver.
 
 As referred in [*semantic conventions* section](#opentelemetry-semantic-conventions), there are recommended attributes that are not included in this proposal that may be useful for the users of Cassandra telemetry and can be something to look at in the future iterations of this feature:
 
