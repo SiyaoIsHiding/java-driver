@@ -4,22 +4,22 @@
 # Summary
 [summary]: #summary
 
-[OpenTelemetry](https://opentelemetry.io/docs/what-is-opentelemetry/) is a collection of APIs, SDKs, and tools used to instrument, generate, collect, and export telemetry data (metrics, logs, and traces) to help the analysis of software’s performance and behavior.
-This document describes the necessary steps to include OpenTelemetry tracing in Apache Cassandra Java driver.
+[OpenTelemetry](https://opentelemetry.io/docs/what-is-opentelemetry/) is a comprehensive collection of APIs, SDKs, and tools designed to instrument, generate, collect, and export telemetry data (metrics, logs, and traces) to analyze software performance and behavior. 
+This document outlines the necessary steps to integrate OpenTelemetry tracing into the Apache Cassandra Java driver.
 
 # Motivation
 [motivation]: #motivation
 
-OpenTelemetry is the industry standard regarding telemetry data that aggregates logs, metrics, and traces. Specifically regarding traces, it allows the developers to understand the full "path" a request takes in the application and navigate through the service(s).
-
-[OpenTelemetry Instrumentation for Java](https://github.com/open-telemetry/opentelemetry-java-instrumentation/tree/main/instrumentation/cassandra/cassandra-4.4/library) already supports auto instrumentation of Apache Cassandra Java Driver when run as a Java agent. It supports metrics, logs, and basic traces. This proposal to support tracing in the native Apache Cassandra Java Driver will save the users from the need to run the Java agent and will expose more detailed information including Cassandra calls.
+OpenTelemetry has become the industry standard for telemetry data aggregation, encompassing logs, metrics, and traces. 
+Tracing, in particular, enables developers to track the full "path" a request takes through the application, providing deep insights into services. 
+[OpenTelemetry's auto-instrumentation](https://github.com/open-telemetry/opentelemetry-java-instrumentation/tree/main/instrumentation/cassandra/cassandra-4.4/library) of the Apache Cassandra Java Driver (via the Java agent) already supports basic traces, logs, and metrics. However, this proposal to include tracing directly in the native Apache Cassandra Java Driver will eliminate the need for a Java agent and provide more detailed information, including individual Cassandra calls due to retry or speculative execution.
 
 # Guide-level explanation
 [guide-level-explanation]: #guide-level-explanation
 
 ## [Traces](https://opentelemetry.io/docs/concepts/signals/traces/)
 
-As mentioned in [*Motivation*](#motivation), traces allows the developers to understand the full "path" a request takes in the application and navigate through a service. Traces include [Spans](https://opentelemetry.io/docs/concepts/signals/traces/#spans) which are unit of works or operation in the ecosystem that include the following information:
+Traces allow developers to understand the complete flow of a request through the system, navigating across services. Each trace consists of multiple [Spans](https://opentelemetry.io/docs/concepts/signals/traces/#spans), which represent units of work within the system. Each span includes the following details:
 
 - Name
 - Parent span ID (empty for root spans)
@@ -30,7 +30,7 @@ As mentioned in [*Motivation*](#motivation), traces allows the developers to und
 - [Span Links](https://opentelemetry.io/docs/concepts/signals/traces/#span-links)
 - [Span Status](https://opentelemetry.io/docs/concepts/signals/traces/#span-status)
 
-The spans can be correlated with each other and assembled into a trace using [context propagation](https://opentelemetry.io/docs/concepts/signals/traces/#context-propagation).
+Spans can be correlated using [context propagation](https://opentelemetry.io/docs/concepts/signals/traces/#context-propagation).
 
 ### Example of a trace in a microservice architecture
 
@@ -41,34 +41,28 @@ The spans can be correlated with each other and assembled into a trace using [co
 
 ### Span name
 
-[OpenTelemetry Trace Semantic Conventions](https://opentelemetry.io/docs/specs/semconv/general/trace/) (at the time of this writing, it's on version 1.29.0) defines multipurpose semantic conventions regarding tracing for different components and protocols (e.g.: Database, HTTP, Messaging, etc.)
+[OpenTelemetry Trace Semantic Conventions](https://opentelemetry.io/docs/specs/semconv/general/trace/) (at the time of this writing, it's on version 1.29.0) standardizes naming conventions for various components. 
+For the Apache Cassandra Java Driver, the focus is on:
+* [Database Client Call Conventions](https://opentelemetry.io/docs/specs/semconv/database/database-spans/)
+* [Cassandra\-Specific Conventions](https://opentelemetry.io/docs/specs/semconv/database/cassandra/)
 
-For Apache Cassandra Java driver, the focus is the [semantic conventions for database client calls](https://opentelemetry.io/docs/specs/semconv/database/database-spans/) for the generic database attributes, and the [semantic conventions for Cassandra](https://opentelemetry.io/docs/specs/semconv/database/cassandra/) for the specific Cassandra attributes.
-
-According to the specification, the span name "SHOULD be set to a low cardinality value representing the statement executed on the database. It MAY be a stored procedure name (without arguments), DB statement without variable arguments, operation name, etc.".\
-The specification also (and only) specifies the span name for SQL databases:\
-"Since SQL statements may have very high cardinality even without arguments, SQL spans SHOULD be named the following way, unless the statement is known to be of low cardinality:\
-`<db.operation> <db.name>.<db.sql.table>`, provided that `db.operation` and `db.sql.table` are available. If `db.sql.table` is not available due to its semantics, the span SHOULD be named `<db.operation> <db.name>`. It is not recommended to attempt any client-side parsing of `db.statement` just to get these properties,
-they should only be used if the library being instrumented already provides them. When it's otherwise impossible to get any meaningful span name, `db.name` or the tech-specific database name MAY be used."
-
-To avoid parsing the statement, the **span name** in this implementation will be `<db.operation> <db.name>` if the **keyspace name** is available. Otherwise, it will be `<db.operation>`.
+The span name for Cassandra will follow this convention: `<db.operation> <db.name>` if the keyspace name is available. If not, it will be `<db.operation>`.
 
 ### Span attributes
 
-This implementation will include, by default, the **required** attributes for Database, and Cassandra spans.\
-`server.address` and `server.port`, despite only **recommended**, are included to give information regarding the client connection.\
-`db.statement` is optional given that this attribute may contain sensitive information.
+This implementation will include, by default, the **required** attributes for Database, and Cassandra spans.
+`server.address`, `server.port`, and `db.query.text`, despite only **recommended**, are included to give information regarding the client connection.
 
-| Attribute         | Description  | Type | Level | Required | Supported Values                           |
-|-------------------|---|---|---|---|--------------------------------------------|
-| db.system         | An identifier for the database management system (DBMS) product being used. | string | Connection | true | cassandra                                  |
-| db.namespace      | The keyspace name in Cassandra. | string | Call | conditionally true [1] | *keyspace in use*                          |
-| db.operation.name | The name of the operation being executed. | string | Call | true if `db.statement` is not applicable. [2] | _Session Request_ or _Node Request_        |
-| db.query.text       | The database statement being executed. | string | Call | false | *database statement in use* [3]            |
-| server.address    | Name of the database host. | string | Connection | true | e.g.: example.com; 10.1.2.80; /tmp/my.sock |
-| server.port       | Server port number. Used in case the port being used is not the default. | int | Connection | false | e.g.: 9445                                 |
+| Attribute         | Description                                                                 | Type   | Level      | Required                                      | Supported Values                           |
+|-------------------|-----------------------------------------------------------------------------|--------|------------|-----------------------------------------------|--------------------------------------------|
+| db.system         | An identifier for the database management system (DBMS) product being used. | string | Connection | true                                          | cassandra                                  |
+| db.namespace      | The keyspace name in Cassandra.                                             | string | Call       | conditionally true [1]                        | *keyspace in use*                          |
+| db.operation.name | The name of the operation being executed.                                   | string | Call       | true if `db.statement` is not applicable. [2] | _Session Request_ or _Node Request_        |
+| db.query.text     | The database statement being executed.                                      | string | Call       | false                                         | *database statement in use* [3]            |
+| server.address    | Name of the database host.                                                  | string | Connection | true                                          | e.g.: example.com; 10.1.2.80; /tmp/my.sock |
+| server.port       | Server port number. Used in case the port being used is not the default.    | int    | Connection | false                                         | e.g.: 9445                                 |
 
-**[1]:** There are cases where the driver doesn't know about the Keyspace name. If the developer doesn't specify a default Keyspace in the builder, or doesn't run a USE Keyspace statement manually, then the driver won't know about the Keyspace because it doesn't parse statements. If the Keyspace name is not known, the `db.name` attribute is not included.
+**[1]:** There are cases where the driver doesn't know about the Keyspace name. If the developer doesn't specify a default Keyspace in the builder, or doesn't run a USE Keyspace statement manually, then the driver won't know about the Keyspace because it does not parse statements. If the Keyspace name is not known, the `db.name` attribute is not included.
 
 **[2]:** Despite not being required, this implementation sets the `db.operation` attribute even if `db.statement` is included.
 
@@ -78,12 +72,12 @@ This implementation will include, by default, the **required** attributes for Da
 
 ### Package installation
 
-The OpenTelemetry implementation will be included in the artifact `java-driver-open-telemetry` with the group id `org.apache.cassandra`.
+The OpenTelemetry implementation will be delivered as an artifact named `java-driver-open-telemetry` with the group id `org.apache.cassandra`.
 
 ### Exporting Cassandra activity
 [exporting-cassandra-activity]: #exporting-cassandra-activity
 
-The extension method `.withOpenTelemetry()` will be available in the `CqlSession` builder, so the activity can be exported for database operations:
+The extension method `.withOpenTelemetry()` will be available in the `CqlSession` builder to export database operation traces:
 
 ```java
 CqlSession session = CqlSession.builder()
@@ -100,8 +94,8 @@ CqlSession session = CqlSession.builder()
 
 ### Dependencies
 
-Similar to the existing query builder feature, this functionality will include a module named `java-driver-open-telemetry` that will handle the spans' generation.\
-`java-driver-open-telemetry` will have dependencies from the following packages:
+Similar to the existing query builder feature, this functionality will be packaged in a module named `java-driver-open-telemetry` that will handle the spans' generation.\
+`java-driver-open-telemetry` will include the following dependencies:
 
 ```xml
 <dependencyManagement>
@@ -143,8 +137,8 @@ Similar to the existing query builder feature, this functionality will include a
 
 ### Extension methods
 
-The project will include a `Builder` extension method named `withOpenTelemetry` that will take an `OpenTelemetry` instance as parameter.
-This `OpenTelemetry` instance will contain configuration for the tracing and the exporter.
+The `CqlSession` builder will support an extension method `withOpenTelemetry`, which will take an `OpenTelemetry` instance as a parameter.
+This `OpenTelemetry` instance will contain configuration for the resource and the exporter. The following is an example of the configuration:
 
 ```java
 static OpenTelemetry initOpenTelemetry() {
@@ -173,7 +167,7 @@ static OpenTelemetry initOpenTelemetry() {
 }
 ```
 
-The `CqlSession` built with this method will have `OtelRequestTracker` registered as a request tracker. This class will implement the `RequestTracker` interface and will be responsible for creating spans for each request.
+The `CqlSession` built with this method will have `OtelRequestTracker` registered as a request tracker. `OtelRequestTracker` will implement the `RequestTracker` interface and will be responsible for creating spans for each request.
 
 After [PR-1949](https://github.com/apache/cassandra-java-driver/pull/1949) is merged, the `RequestTracker` interface will include:
 ```java
@@ -206,7 +200,7 @@ void onNodeError(
 `OtelRequestTracker` will utilize the above methods.
 
 `OtelRequestTracker` will initialize OpenTelemetry exporter on `onSessionReady`. 
-It will create a parent span of operation name `Session Request` on `onRequestCreated`, and create a child span of operation name `Node Request` on `onRequestCreatedForNode`. It will end the spans on `onSuccess`, `onError`, `onNodeSuccess`, or `onNodeError`.
+It will create a parent span of operation name `Session Request` on `onRequestCreated`, and create a child span of operation name `Node Request` on `onRequestCreatedForNode`, including the database calls for retries and speculative executions. It will end all the spans in this `Session Request` on `onSuccess`, `onError`, `onNodeSuccess`, or `onNodeError`.
 
 # Rationale and alternatives
 [rationale-and-alternatives]: #rationale-and-alternatives
@@ -214,33 +208,32 @@ It will create a parent span of operation name `Session Request` on `onRequestCr
 ## Not using `opentelemetry-semconv` package
 
 The [semantic conventions](https://opentelemetry.io/docs/specs/semconv/) are a fast evolving reference that "define a common set of (semantic) attributes which provide meaning to data when collecting, producing and consuming it.".\
-As its changes can be hard to follow, OpenTelemetry provides a package named [`opentelemetry-semconv`](https://github.com/open-telemetry/semantic-conventions-java) that generate Java code for semantic conventions. Using this package will allow the Apache Cassandra project to have its tracing attributes up-to-date to the conventions with less maintenance, however, as it's still marked as non-stable (current version is `1.29.0-alpha`), it is not included in this proposal.
+While the package [`opentelemetry-semconv`](https://github.com/open-telemetry/semantic-conventions-java) (current version 1.29.0-alpha) can simplify semantic convention updates, it is still marked as non-stable and therefore is not included in this proposal.
 
 # Prior art
 [prior-art]: #prior-art
 
 OpenTelemetry has [instrumentation](https://github.com/open-telemetry/opentelemetry-java-instrumentation/tree/main/instrumentation/cassandra/cassandra-4.4/library) for Apache Cassandra Java Driver, but it requires the user to run the Java agent.
+Apache Cassandra C# driver already provides [native support](https://docs.datastax.com/en/developer/csharp-driver/latest/features/opentelemetry/index.html) for OpenTelemetry tracing. 
 
+Apache Cassandra also has client-side implementations in other languages in the form of contribution projects:
+
+- [NodeJS](https://github.com/open-telemetry/opentelemetry-js-contrib/tree/main/plugins/node/opentelemetry-instrumentation-cassandra)
+- [Python](https://github.com/open-telemetry/opentelemetry-python-contrib/tree/main/instrumentation/opentelemetry-instrumentation-cassandra)
 
 There are other DBMS implementations regarding the export of telemetry data in client-side calls in the java ecosystem:
 
 - [MongoDB](https://github.com/open-telemetry/opentelemetry-java-instrumentation/tree/main/instrumentation/mongo) 
-- [Elasticsearch](https://github.com/elastic/elastic-otel-java) 
-
-Apache Cassandra also has client-side implementations in other languages in the form of contribution projects, as listed below:
-
-- [NodeJS](https://github.com/open-telemetry/opentelemetry-js-contrib/tree/main/plugins/node/opentelemetry-instrumentation-cassandra) 
-- [Python](https://github.com/open-telemetry/opentelemetry-python-contrib/tree/main/instrumentation/opentelemetry-instrumentation-cassandra) 
+- [Elasticsearch](https://github.com/elastic/elastic-otel-java)
 
 # Future possibilities
 [future-possibilities]: #future-possibilities
 
-## Traces
 
-### Include configuration options
+## Include configuration options
 
-The OpenTelemetry implementation can include configuration options by the standard typesafe library to allow the user to customize the exporter, the sampling, and the attributes included in the spans.
-For example, we can include the following configuration options:
+Future updates could introduce customizable configuration options for exporters, sampling, and span attributes via Typesafe configuration.
+For example, we could support the following option to disable the `db.statement` span attribute:
 
 ```
 datastax-java-driver {
@@ -255,11 +248,11 @@ datastax-java-driver {
 
 ```
 
-### Adopt `opentelemetry-semconv` and include missing recommended attributes
+## Adopt `opentelemetry-semconv` and include missing recommended attributes
 
-When `opentelemetry-semconv` becomes stable, the project can adopt it to generate the semantic conventions for the Cassandra driver.
+When `opentelemetry-semconv` becomes stable, the project can adopt it to simplify semantic convention updates.
 
-As referred in [*semantic conventions* section](#opentelemetry-semantic-conventions), there are recommended attributes that are not included in this proposal that may be useful for the users of Cassandra telemetry and can be something to look at in the future iterations of this feature:
+As referred in [*semantic conventions* section](#opentelemetry-semantic-conventions), there are recommended attributes that are not included in this proposal that may be useful for the users of Cassandra telemetry and can be something to look at in the future:
 
 - [Cassandra Call-level attributes](https://opentelemetry.io/docs/specs/semconv/database/cassandra/#call-level-attributes)
 - [Database Call-level attributes](https://opentelemetry.io/docs/specs/semconv/database/database-spans/#call-level-attributes)
@@ -267,4 +260,4 @@ As referred in [*semantic conventions* section](#opentelemetry-semantic-conventi
 
 ## Metrics and logs
 
-As the industry is moving to adopt OpenTelemetry, the export of metrics and logs using this standard may be something useful for the users of Apache Cassandra Java Driver. Although the [semantic conventions for database metrics](https://opentelemetry.io/docs/specs/semconv/database/database-metrics/) are still in experimental status, it can be something to look at in the future.
+As the industry is moving to adopt OpenTelemetry, this project could eventually support metrics and logs, although the [semantic conventions for database metrics](https://opentelemetry.io/docs/specs/semconv/database/database-metrics/) are still in experimental status.
