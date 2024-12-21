@@ -23,7 +23,8 @@ under the License.
 
 ### Java
 
-Test. We follow the [Google Java Style Guide](https://google.github.io/styleguide/javaguide.html). See
+Test. 
+We follow the [Google Java Style Guide](https://google.github.io/styleguide/javaguide.html). See
 https://github.com/google/google-java-format for IDE plugins. The rules are not configurable.
 
 The build will fail if the code is not formatted. To format all files from the command line, run:
