@@ -12,7 +12,9 @@ This document outlines the necessary steps to integrate OpenTelemetry tracing in
 
 OpenTelemetry has become the industry standard for telemetry data aggregation, encompassing logs, metrics, and traces. 
 Tracing, in particular, enables developers to track the full "path" a request takes through the application, providing deep insights into services. 
-[OpenTelemetry's auto-instrumentation](https://github.com/open-telemetry/opentelemetry-java-instrumentation/tree/main/instrumentation/cassandra/cassandra-4.4/library) of the Apache Cassandra Java Driver (via the Java agent) already supports basic traces, logs, and metrics. However, this proposal to include tracing directly in the native Apache Cassandra Java Driver will eliminate the need for a Java agent and provide more detailed information, including individual Cassandra calls due to retry or speculative execution.
+[OpenTelemetry's auto-instrumentation](https://github.com/open-telemetry/opentelemetry-java-instrumentation/tree/main/instrumentation/cassandra/cassandra-4.4/library) of the Apache Cassandra Java Driver (via the Java agent) already supports basic traces, logs, and metrics. 
+However, this proposal to include tracing directly in the native Apache Cassandra Java Driver will eliminate the need for a Java agent and provide more detailed information, including individual Cassandra calls due to retry or speculative execution.
+The OpenTelemetry support will also be invulnerable to internal API changes as it will be officially supported.
 
 # Guide-level explanation
 [guide-level-explanation]: #guide-level-explanation
