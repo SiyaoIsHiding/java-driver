@@ -23,7 +23,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.Random;
-import java.util.concurrent.ThreadLocalRandom;
 import org.junit.Test;
 
 public class ArrayUtilsTest {

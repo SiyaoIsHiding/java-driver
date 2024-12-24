@@ -18,7 +18,6 @@
 package com.datastax.oss.driver.internal.core.util;
 
 import edu.umd.cs.findbugs.annotations.NonNull;
-
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 
