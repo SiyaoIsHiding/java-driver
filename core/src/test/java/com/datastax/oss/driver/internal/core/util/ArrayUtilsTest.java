@@ -22,6 +22,7 @@ import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 import org.junit.Test;
 
@@ -86,7 +87,7 @@ public class ArrayUtilsTest {
   @Test
   public void should_shuffle_head() {
     String[] array = {"a", "b", "c", "d", "e"};
-    ThreadLocalRandom random = mock(ThreadLocalRandom.class);
+    Random random = mock(Random.class);
     when(random.nextInt(anyInt()))
         .thenAnswer(
             (invocation) -> {
