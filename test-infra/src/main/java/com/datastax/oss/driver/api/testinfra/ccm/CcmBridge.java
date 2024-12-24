@@ -27,16 +27,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
@@ -409,7 +400,16 @@ public class CcmBridge implements AutoCloseable {
       executor.setStreamHandler(streamHandler);
       executor.setWatchdog(watchDog);
 
-      int retValue = executor.execute(cli);
+      int retValue;
+      if (System.getProperty("testJavaHome") != null) {
+        // Set PATH and JAVA_HOME to enable ccm to find the correct java
+        Map<String, String> env = new HashMap<>(System.getenv());
+        env.put("PATH", System.getProperty("testJavaHome") + "/bin:" + env.get("PATH"));
+        env.put("JAVA_HOME", System.getProperty("testJavaHome"));
+        retValue = executor.execute(cli, env);
+      } else {
+        retValue = executor.execute(cli);
+      }
       if (retValue != 0) {
         LOG.error("Non-zero exit code ({}) returned from executing ccm command: {}", retValue, cli);
       }
