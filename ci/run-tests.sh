@@ -5,6 +5,7 @@
 cd $(dirname "$(readlink -f "$0")")/..
 printenv | sort
 mvn -B -V install -DskipTests -Dmaven.javadoc.skip=true
+jabba use ${TEST_JAVA_VERSION}
 # Find out the latest patch version of Cassandra
 PATCH_SERVER_VERSION=$(curl -s https://downloads.apache.org/cassandra/ | grep -oP '(?<=href=\")[0-9]+\.[0-9]+\.[0-9]+(?=)' | sort -rV | uniq -w 3 | grep $SERVER_VERSION)
 printenv | sort
