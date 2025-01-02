@@ -147,8 +147,6 @@ public interface Select extends OngoingSelection, OngoingWhereClause<Select>, Bu
     return orderBy(CqlIdentifier.fromCql(columnName), order);
   }
 
-  @NonNull
-  Select orderBy(@NonNull Ann ann);
   /**
    * Shortcut for {@link #orderByAnnOf(CqlIdentifier, CqlVector)}, adding an ORDER BY ... ANN OF ...
    * clause
