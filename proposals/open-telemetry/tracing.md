@@ -53,16 +53,30 @@ The span name for Cassandra will follow this convention: `<db.operation> <db.nam
 ### Span attributes
 
 This implementation will include, by default, the **required** attributes for Database, and Cassandra spans.
-`server.address`, `server.port`, and `db.query.text`, despite only **recommended**, are included to give information regarding the client connection.
+`server.address`, `server.port`, and `db.query.text`, despite only **recommended**, are included to give information regarding the client connection, in align with Cassandra CSharp Driver's behavior.
 
-| Attribute         | Description                                                                 | Type   | Level      | Required                                      | Supported Values                           |
-|-------------------|-----------------------------------------------------------------------------|--------|------------|-----------------------------------------------|--------------------------------------------|
-| db.system         | An identifier for the database management system (DBMS) product being used. | string | Connection | true                                          | cassandra                                  |
-| db.namespace      | The keyspace name in Cassandra.                                             | string | Call       | conditionally true [1]                        | *keyspace in use*                          |
-| db.operation.name | The name of the operation being executed.                                   | string | Call       | true if `db.statement` is not applicable. [2] | _Session Request_ or _Node Request_        |
-| db.query.text     | The database statement being executed.                                      | string | Call       | false                                         | *database statement in use* [3]            |
-| server.address    | Name of the database host.                                                  | string | Connection | true                                          | e.g.: example.com; 10.1.2.80; /tmp/my.sock |
-| server.port       | Server port number. Used in case the port being used is not the default.    | int    | Connection | false                                         | e.g.: 9445                                 |
+For a Session Request span, the following attributes will be included:
+
+| Attribute                    | Description                                                                 | Type   | Level      | Required                                      | Supported Values                |
+|------------------------------|-----------------------------------------------------------------------------|--------|------------|-----------------------------------------------|---------------------------------|
+| db.system                    | An identifier for the database management system (DBMS) product being used. | string | Connection | true                                          | cassandra                       |
+| db.namespace                 | The keyspace name in Cassandra.                                             | string | Call       | conditionally true [1]                        | *keyspace in use*               |
+| db.operation.name            | The name of the operation being executed.                                   | string | Call       | true if `db.statement` is not applicable. [2] | _Session Request_               |
+| db.query.text                | The database statement being executed.                                      | string | Call       | false                                         | *database statement in use* [3] |
+| db.operation.parameter.<key> | The parameter values for the database statement being executed.             | string | Call       | false                                         | *parameter values in use*       |
+
+
+For a Node Request span, the following attributes will be included:
+
+| Attribute                    | Description                                                                 | Type   | Level      | Required                                      | Supported Values                           |
+|------------------------------|-----------------------------------------------------------------------------|--------|------------|-----------------------------------------------|--------------------------------------------|
+| db.system                    | An identifier for the database management system (DBMS) product being used. | string | Connection | true                                          | cassandra                                  |
+| db.namespace                 | The keyspace name in Cassandra.                                             | string | Call       | conditionally true [1]                        | *keyspace in use*                          |
+| db.operation.name            | The name of the operation being executed.                                   | string | Call       | true if `db.statement` is not applicable. [2] | _Node Request_                             |
+| db.query.text                | The database statement being executed.                                      | string | Call       | false                                         | *database statement in use* [3]            |
+| db.operation.parameter.<key> | The parameter values for the database statement being executed.             | string | Call       | false                                         | *parameter values in use*                  |
+| server.address               | Name of the database host.                                                  | string | Connection | true                                          | e.g.: example.com; 10.1.2.80; /tmp/my.sock |
+| server.port                  | Server port number. Used in case the port being used is not the default.    | int    | Connection | false                                         | e.g.: 9445                                 |
 
 **[1]:** There are cases where the driver doesn't know about the Keyspace name. If the developer doesn't specify a default Keyspace in the builder, or doesn't run a USE Keyspace statement manually, then the driver won't know about the Keyspace because it does not parse statements. If the Keyspace name is not known, the `db.name` attribute is not included.
 
@@ -76,17 +90,45 @@ This implementation will include, by default, the **required** attributes for Da
 
 The OpenTelemetry implementation will be delivered as an artifact named `java-driver-open-telemetry` with the group id `org.apache.cassandra`.
 
-### Exporting Cassandra activity
-[exporting-cassandra-activity]: #exporting-cassandra-activity
+### Exporting Apache Cassandra activity
 
-The extension method `.withOpenTelemetry()` will be available in the `CqlSession` builder to export database operation traces:
+Users can instantiate an `OtelRequestTracker` and pass to `CqlSession.builder().withRequestTracker`. In this way, the `java-driver-core` module does not need to include any OpenTelemetry-relevant dependency:
 
 ```java
 CqlSession session = CqlSession.builder()
     .addContactPoint(new InetSocketAddress("127.0.0.1", 9042))
     .withLocalDatacenter("datacenter1")
-    .withOpenTelemetry(initOpenTelemetry())
+    .withRequestTracker(new OtelRequestTracker(initOpenTelemetry()))
     .build();
+```
+
+The constructor of `OtelRequestTracker` needs an argument of `OpenTelemetry` instance. This instance will contain the configuration for the resource and the exporter.
+
+```java
+static OpenTelemetry initOpenTelemetry() {
+
+    ManagedChannel jaegerChannel =
+            ManagedChannelBuilder.forAddress("localhost", 14250).usePlaintext().build();
+
+    JaegerGrpcSpanExporter jaegerExporter =
+            JaegerGrpcSpanExporter.builder()
+                    .setChannel(jaegerChannel)
+                    .setTimeout(30, TimeUnit.SECONDS)
+                    .build();
+
+    Resource serviceNameResource =
+            Resource.create(Attributes.of(ResourceAttributes.SERVICE_NAME, "Demo App"));
+
+    SdkTracerProvider tracerProvider =
+            SdkTracerProvider.builder()
+                    .addSpanProcessor(SimpleSpanProcessor.create(jaegerExporter))
+                    .setResource(Resource.getDefault().merge(serviceNameResource))
+                    .build();
+    OpenTelemetrySdk openTelemetry =
+            OpenTelemetrySdk.builder().setTracerProvider(tracerProvider).build();
+
+    return openTelemetry;
+}
 ```
 
 # Reference-level explanation
@@ -137,39 +179,11 @@ Similar to the existing query builder feature, this functionality will be packag
 </dependencies>
 ```
 
-### Extension methods
+### OtelRequestTracker
 
-The `CqlSession` builder will support an extension method `withOpenTelemetry`, which will take an `OpenTelemetry` instance as a parameter.
-This `OpenTelemetry` instance will contain configuration for the resource and the exporter. The following is an example of the configuration:
+`OtelRequestTracker`'s constructor needs an argument of `OpenTelemetry` instance, which contains configuration information.
 
-```java
-static OpenTelemetry initOpenTelemetry() {
-
-    ManagedChannel jaegerChannel =
-            ManagedChannelBuilder.forAddress("localhost", 14250).usePlaintext().build();
-
-    JaegerGrpcSpanExporter jaegerExporter =
-            JaegerGrpcSpanExporter.builder()
-                    .setChannel(jaegerChannel)
-                    .setTimeout(30, TimeUnit.SECONDS)
-                    .build();
-
-    Resource serviceNameResource =
-            Resource.create(Attributes.of(ResourceAttributes.SERVICE_NAME, "Demo App"));
-
-    SdkTracerProvider tracerProvider =
-            SdkTracerProvider.builder()
-                    .addSpanProcessor(SimpleSpanProcessor.create(jaegerExporter))
-                    .setResource(Resource.getDefault().merge(serviceNameResource))
-                    .build();
-    OpenTelemetrySdk openTelemetry =
-            OpenTelemetrySdk.builder().setTracerProvider(tracerProvider).build();
-
-    return openTelemetry;
-}
-```
-
-The `CqlSession` built with this method will have `OtelRequestTracker` registered as a request tracker. `OtelRequestTracker` will implement the `RequestTracker` interface and will be responsible for creating spans for each request.
+`OtelRequestTracker` implements the `RequestTracker` interface and will be responsible for creating spans for each request.
 
 After [PR-1949](https://github.com/apache/cassandra-java-driver/pull/1949) is merged, the `RequestTracker` interface will include:
 ```java
@@ -197,12 +211,16 @@ void onNodeSuccess(
 
 void onNodeError(
     long latencyNanos, @NonNull ExecutionInfo executionInfo, @NonNull String requestLogPrefix) {}
+        
+void close(){}
 ```
 
 `OtelRequestTracker` will utilize the above methods.
 
-`OtelRequestTracker` will initialize OpenTelemetry exporter on `onSessionReady`. 
-It will create a parent span of operation name `Session Request` on `onRequestCreated`, and create a child span of operation name `Node Request` on `onRequestCreatedForNode`, including the database calls for retries and speculative executions. It will end all the spans in this `Session Request` on `onSuccess`, `onError`, `onNodeSuccess`, or `onNodeError`.
+1. `OtelRequestTracker` will initialize OpenTelemetry exporter on `onSessionReady`. 
+2. It will create a parent span of operation name `Session Request` on `onRequestCreated`, and create a child span of operation name `Node Request` on `onRequestCreatedForNode`, including the database calls for retries and speculative executions. 
+3. It will end all the spans in this `Session Request` on `onSuccess`, `onError`, `onNodeSuccess`, or `onNodeError`.
+4. It will release all the resources on `close`.
 
 # Rationale and alternatives
 [rationale-and-alternatives]: #rationale-and-alternatives
