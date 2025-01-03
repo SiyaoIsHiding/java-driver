@@ -57,26 +57,33 @@ This implementation will include, by default, the **required** attributes for Da
 
 For a Session Request span, the following attributes will be included:
 
-| Attribute                    | Description                                                                 | Type   | Level      | Required                                      | Supported Values                |
-|------------------------------|-----------------------------------------------------------------------------|--------|------------|-----------------------------------------------|---------------------------------|
-| db.system                    | An identifier for the database management system (DBMS) product being used. | string | Connection | true                                          | cassandra                       |
-| db.namespace                 | The keyspace name in Cassandra.                                             | string | Call       | conditionally true [1]                        | *keyspace in use*               |
-| db.operation.name            | The name of the operation being executed.                                   | string | Call       | true if `db.statement` is not applicable. [2] | _Session Request_               |
-| db.query.text                | The database statement being executed.                                      | string | Call       | false                                         | *database statement in use* [3] |
-| db.operation.parameter.<key> | The parameter values for the database statement being executed.             | string | Call       | false                                         | *parameter values in use*       |
+| Attribute                      | Description                                                                 | Type   | Level      | Required                                      | Supported Values                |
+|--------------------------------|-----------------------------------------------------------------------------|--------|------------|-----------------------------------------------|---------------------------------|
+| db.system                      | An identifier for the database management system (DBMS) product being used. | string | Connection | true                                          | cassandra                       |
+| db.namespace                   | The keyspace name in Cassandra.                                             | string | Call       | conditionally true [1]                        | *keyspace in use*               |
+| db.operation.name              | The name of the operation being executed.                                   | string | Call       | true if `db.statement` is not applicable. [2] | Session_Request({RequestType})  |
+| db.query.text                  | The database statement being executed.                                      | string | Call       | false                                         | *database statement in use* [3] |
+| db.operation.parameter.<key>   | The parameter values for the database statement being executed.             | string | Call       | false                                         | *parameter values in use*       |
+| db.cassandra.consistency_level | The consistency level of the query.                                         | string | Call       | false                                         | *consistency level in use*      |
+| db.cassandra.idempotence       | Whether the query is idempotent.                                            | bool   | Call       | false                                         | *true/false*                    |
 
-
+A Session Request can have multiple Node Requests, due to retries and speculative executions. 
 For a Node Request span, the following attributes will be included:
 
-| Attribute                    | Description                                                                 | Type   | Level      | Required                                      | Supported Values                           |
-|------------------------------|-----------------------------------------------------------------------------|--------|------------|-----------------------------------------------|--------------------------------------------|
-| db.system                    | An identifier for the database management system (DBMS) product being used. | string | Connection | true                                          | cassandra                                  |
-| db.namespace                 | The keyspace name in Cassandra.                                             | string | Call       | conditionally true [1]                        | *keyspace in use*                          |
-| db.operation.name            | The name of the operation being executed.                                   | string | Call       | true if `db.statement` is not applicable. [2] | _Node Request_                             |
-| db.query.text                | The database statement being executed.                                      | string | Call       | false                                         | *database statement in use* [3]            |
-| db.operation.parameter.<key> | The parameter values for the database statement being executed.             | string | Call       | false                                         | *parameter values in use*                  |
-| server.address               | Name of the database host.                                                  | string | Connection | true                                          | e.g.: example.com; 10.1.2.80; /tmp/my.sock |
-| server.port                  | Server port number. Used in case the port being used is not the default.    | int    | Connection | false                                         | e.g.: 9445                                 |
+| Attribute                                | Description                                                                 | Type   | Level      | Required                                      | Supported Values                            |
+|------------------------------------------|-----------------------------------------------------------------------------|--------|------------|-----------------------------------------------|---------------------------------------------|
+| db.system                                | An identifier for the database management system (DBMS) product being used. | string | Connection | true                                          | cassandra                                   |
+| db.namespace                             | The keyspace name in Cassandra.                                             | string | Call       | conditionally true [1]                        | *keyspace in use*                           |
+| db.operation.name                        | The name of the operation being executed.                                   | string | Call       | true if `db.statement` is not applicable. [2] | Session_Request({RequestType})              |
+| db.query.text                            | The database statement being executed.                                      | string | Call       | false                                         | *database statement in use* [3]             |
+| db.operation.parameter.<key>             | The parameter values for the database statement being executed.             | string | Call       | false                                         | *parameter values in use*                   |
+| db.cassandra.consistency_level           | The consistency level of the query.                                         | string | Call       | false                                         | *consistency level in use*                  |
+| db.cassandra.idempotence                 | Whether the query is idempotent.                                            | bool   | Call       | false                                         | *true/false*                                |
+| server.address                           | Name of the database host.                                                  | string | Connection | true                                          | e.g.: example.com; 10.1.2.80; /tmp/my.sock  |
+| server.port                              | Server port number. Used in case the port being used is not the default.    | int    | Connection | false                                         | e.g.: 9445                                  |
+| db.cassandra.coordinator.dc              | The datacenter of the coordinator node.                                     | string | Call       | false                                         | *datacenter name in use*                    |
+| db.cassandra.coordinator.id              | The ID of the coordinator node.                                             | string | Call       | false                                         | *node ID in use*                            |
+| db.cassandra.speculative_execution_count | The number of speculative executions executed.                              | int    | Call       | false                                         | *number of speculative executions executed* |
 
 **[1]:** There are cases where the driver doesn't know about the Keyspace name. If the developer doesn't specify a default Keyspace in the builder, or doesn't run a USE Keyspace statement manually, then the driver won't know about the Keyspace because it does not parse statements. If the Keyspace name is not known, the `db.name` attribute is not included.
 
@@ -185,7 +192,8 @@ Similar to the existing query builder feature, this functionality will be packag
 
 `OtelRequestTracker` implements the `RequestTracker` interface and will be responsible for creating spans for each request.
 
-After [PR-1949](https://github.com/apache/cassandra-java-driver/pull/1949) is merged, the `RequestTracker` interface will include:
+After [PR-1](https://github.com/lukasz-antoniak/cassandra-java-driver/pull/1) and [PR-1949](https://github.com/apache/cassandra-java-driver/pull/1949) are merged, the `RequestTracker` interface will include:
+
 ```java
 void onSessionReady(@NonNull Session session) {}
         
