@@ -43,201 +43,181 @@ import org.junit.runner.RunWith;
 public class VectorCodecTest {
 
   @DataProvider
-  public static Object[][] dataProvider() {
+  public static Object[] dataProvider() {
     HashMap<Integer, String> map1 = new HashMap<>();
     map1.put(1, "a");
     HashMap<Integer, String> map2 = new HashMap<>();
     map2.put(2, "b");
-    // For every row, data type, array of 2 values, formatted string, encoded bytes
-    return new Object[][] {
-      {
-        DataTypes.FLOAT,
-        new Float[] {1.0f, 2.5f},
-        "[1.0, 2.5]",
-        Bytes.fromHexString("0x3f80000040200000")
-      },
-      {
-        DataTypes.ASCII,
-        new String[] {"ab", "cde"},
-        "['ab', 'cde']",
-        Bytes.fromHexString("0x02616203636465")
-      },
-      {
-        DataTypes.BIGINT,
-        new Long[] {1L, 2L},
-        "[1, 2]",
-        Bytes.fromHexString("0x00000000000000010000000000000002")
-      },
-      {
-        DataTypes.BLOB,
-        new ByteBuffer[] {Bytes.fromHexString("0xCAFE"), Bytes.fromHexString("0xABCD")},
-        "[0xcafe, 0xabcd]",
-        Bytes.fromHexString("0x02cafe02abcd")
-      },
-      {
-        DataTypes.BOOLEAN,
-        new Boolean[] {true, false},
-        "[true, false]",
-        Bytes.fromHexString("0x0100")
-      },
-      {
-        DataTypes.TIME,
-        new LocalTime[] {LocalTime.ofNanoOfDay(1), LocalTime.ofNanoOfDay(2)},
-        "['00:00:00.000000001', '00:00:00.000000002']",
-        Bytes.fromHexString("0x080000000000000001080000000000000002")
-      },
-      {
-        DataTypes.mapOf(DataTypes.INT, DataTypes.ASCII),
-        new HashMap[] {map1, map2},
-        "[{1:'a'}, {2:'b'}]",
-        Bytes.fromHexString(
-            "0x110000000100000004000000010000000161110000000100000004000000020000000162")
-      },
-      {
-        DataTypes.vectorOf(DataTypes.INT, 1),
-        new CqlVector[] {CqlVector.newInstance(1), CqlVector.newInstance(2)},
-        "[[1], [2]]",
-        Bytes.fromHexString("0x0000000100000002")
-      },
-      {
-        DataTypes.vectorOf(DataTypes.TEXT, 1),
-        new CqlVector[] {CqlVector.newInstance("ab"), CqlVector.newInstance("cdef")},
-        "[['ab'], ['cdef']]",
-        Bytes.fromHexString("0x03026162050463646566")
-      },
-      {
-        DataTypes.vectorOf(DataTypes.vectorOf(DataTypes.FLOAT, 2), 1),
-        new CqlVector[] {
-          CqlVector.newInstance(CqlVector.newInstance(1.0f, 2.5f)),
-          CqlVector.newInstance(CqlVector.newInstance(3.0f, 4.5f))
-        },
-        "[[[1.0, 2.5]], [[3.0, 4.5]]]",
-        Bytes.fromHexString("0x3f800000402000004040000040900000")
-      },
+    return new TestDataContainer[] {
+      new TestDataContainer(
+          DataTypes.FLOAT,
+          new Float[] {1.0f, 2.5f},
+          "[1.0, 2.5]",
+          Bytes.fromHexString("0x3f80000040200000")),
+      new TestDataContainer(
+          DataTypes.ASCII,
+          new String[] {"ab", "cde"},
+          "['ab', 'cde']",
+          Bytes.fromHexString("0x02616203636465")),
+      new TestDataContainer(
+          DataTypes.BIGINT,
+          new Long[] {1L, 2L},
+          "[1, 2]",
+          Bytes.fromHexString("0x00000000000000010000000000000002")),
+      new TestDataContainer(
+          DataTypes.BLOB,
+          new ByteBuffer[] {Bytes.fromHexString("0xCAFE"), Bytes.fromHexString("0xABCD")},
+          "[0xcafe, 0xabcd]",
+          Bytes.fromHexString("0x02cafe02abcd")),
+      new TestDataContainer(
+          DataTypes.BOOLEAN,
+          new Boolean[] {true, false},
+          "[true, false]",
+          Bytes.fromHexString("0x0100")),
+      new TestDataContainer(
+          DataTypes.TIME,
+          new LocalTime[] {LocalTime.ofNanoOfDay(1), LocalTime.ofNanoOfDay(2)},
+          "['00:00:00.000000001', '00:00:00.000000002']",
+          Bytes.fromHexString("0x080000000000000001080000000000000002")),
+      new TestDataContainer(
+          DataTypes.mapOf(DataTypes.INT, DataTypes.ASCII),
+          new HashMap[] {map1, map2},
+          "[{1:'a'}, {2:'b'}]",
+          Bytes.fromHexString(
+              "0x110000000100000004000000010000000161110000000100000004000000020000000162")),
+      new TestDataContainer(
+          DataTypes.vectorOf(DataTypes.INT, 1),
+          new CqlVector[] {CqlVector.newInstance(1), CqlVector.newInstance(2)},
+          "[[1], [2]]",
+          Bytes.fromHexString("0x0000000100000002")),
+      new TestDataContainer(
+          DataTypes.vectorOf(DataTypes.TEXT, 1),
+          new CqlVector[] {CqlVector.newInstance("ab"), CqlVector.newInstance("cdef")},
+          "[['ab'], ['cdef']]",
+          Bytes.fromHexString("0x03026162050463646566")),
+      new TestDataContainer(
+          DataTypes.vectorOf(DataTypes.vectorOf(DataTypes.FLOAT, 2), 1),
+          new CqlVector[] {
+            CqlVector.newInstance(CqlVector.newInstance(1.0f, 2.5f)),
+            CqlVector.newInstance(CqlVector.newInstance(3.0f, 4.5f))
+          },
+          "[[[1.0, 2.5]], [[3.0, 4.5]]]",
+          Bytes.fromHexString("0x3f800000402000004040000040900000"))
     };
   }
 
   @UseDataProvider("dataProvider")
   @Test
-  public void should_encode(
-      DataType dataType, Object[] values, String formatted, ByteBuffer bytes) {
-    TypeCodec<CqlVector<Object>> codec = getCodec(dataType);
-    CqlVector<Object> vector = CqlVector.newInstance(values);
-    assertThat(codec.encode(vector, ProtocolVersion.DEFAULT)).isEqualTo(bytes);
+  public void should_encode(TestDataContainer testData) {
+    TypeCodec<CqlVector<Object>> codec = getCodec(testData.getDataType());
+    CqlVector<Object> vector = CqlVector.newInstance(testData.getValues());
+    assertThat(codec.encode(vector, ProtocolVersion.DEFAULT)).isEqualTo(testData.getBytes());
   }
 
-  /** Too few elements will cause an exception, extra elements will be silently ignored */
   @Test
   @UseDataProvider("dataProvider")
-  public void should_throw_on_encode_with_too_few_elements(
-      DataType dataType, Object[] values, String formatted, ByteBuffer bytes) {
-    TypeCodec<CqlVector<Object>> codec = getCodec(dataType);
+  public void should_throw_on_encode_with_too_few_elements(TestDataContainer testData) {
+    TypeCodec<CqlVector<Object>> codec = getCodec(testData.getDataType());
     assertThatThrownBy(
-            () -> codec.encode(CqlVector.newInstance(values[0]), ProtocolVersion.DEFAULT))
+            () ->
+                codec.encode(
+                    CqlVector.newInstance(testData.getValues()[0]), ProtocolVersion.DEFAULT))
         .isInstanceOf(IllegalArgumentException.class);
   }
 
   @Test
   @UseDataProvider("dataProvider")
-  public void should_throw_on_encode_with_too_many_elements(
-      DataType dataType, Object[] values, String formatted, ByteBuffer bytes) {
-    Object[] doubled = ArrayUtils.addAll(values, values);
-    TypeCodec<CqlVector<Object>> codec = getCodec(dataType);
+  public void should_throw_on_encode_with_too_many_elements(TestDataContainer testData) {
+    Object[] doubled = ArrayUtils.addAll(testData.getValues(), testData.getValues());
+    TypeCodec<CqlVector<Object>> codec = getCodec(testData.getDataType());
     assertThatThrownBy(() -> codec.encode(CqlVector.newInstance(doubled), ProtocolVersion.DEFAULT))
         .isInstanceOf(IllegalArgumentException.class);
   }
 
   @Test
   @UseDataProvider("dataProvider")
-  public void should_decode(
-      DataType dataType, Object[] values, String formatted, ByteBuffer bytes) {
-    TypeCodec<CqlVector<Object>> codec = getCodec(dataType);
-    assertThat(codec.decode(bytes, ProtocolVersion.DEFAULT))
-        .isEqualTo(CqlVector.newInstance(values));
+  public void should_decode(TestDataContainer testData) {
+    TypeCodec<CqlVector<Object>> codec = getCodec(testData.getDataType());
+    assertThat(codec.decode(testData.getBytes(), ProtocolVersion.DEFAULT))
+        .isEqualTo(CqlVector.newInstance(testData.getValues()));
   }
 
   @Test
   @UseDataProvider("dataProvider")
-  public void should_throw_on_decode_if_too_few_bytes(
-      DataType dataType, Object[] values, String formatted, ByteBuffer bytes) {
-    TypeCodec<CqlVector<Object>> codec = getCodec(dataType);
-    int lastIndex = bytes.remaining() - 1;
+  public void should_throw_on_decode_if_too_few_bytes(TestDataContainer testData) {
+    TypeCodec<CqlVector<Object>> codec = getCodec(testData.getDataType());
+    int lastIndex = testData.getBytes().remaining() - 1;
     assertThatThrownBy(
             () ->
                 codec.decode(
-                    (ByteBuffer) bytes.duplicate().limit(lastIndex), ProtocolVersion.DEFAULT))
+                    (ByteBuffer) testData.getBytes().duplicate().limit(lastIndex),
+                    ProtocolVersion.DEFAULT))
         .isInstanceOf(IllegalArgumentException.class);
   }
 
   @Test
   @UseDataProvider("dataProvider")
-  public void should_throw_on_decode_if_too_many_bytes(
-      DataType dataType, Object[] values, String formatted, ByteBuffer bytes) {
-    ByteBuffer doubled = ByteBuffer.allocate(bytes.remaining() * 2);
-    doubled.put(bytes.duplicate()).put(bytes.duplicate()).flip();
-    TypeCodec<CqlVector<Object>> codec = getCodec(dataType);
+  public void should_throw_on_decode_if_too_many_bytes(TestDataContainer testData) {
+    ByteBuffer doubled = ByteBuffer.allocate(testData.getBytes().remaining() * 2);
+    doubled.put(testData.getBytes().duplicate()).put(testData.getBytes().duplicate()).flip();
+    TypeCodec<CqlVector<Object>> codec = getCodec(testData.getDataType());
     assertThatThrownBy(() -> codec.decode(doubled, ProtocolVersion.DEFAULT))
         .isInstanceOf(IllegalArgumentException.class);
   }
 
   @Test
   @UseDataProvider("dataProvider")
-  public void should_format(
-      DataType dataType, Object[] values, String formatted, ByteBuffer bytes) {
-    TypeCodec<CqlVector<Object>> codec = getCodec(dataType);
-    CqlVector<Object> vector = CqlVector.newInstance(values);
-    assertThat(codec.format(vector)).isEqualTo(formatted);
+  public void should_format(TestDataContainer testData) {
+    TypeCodec<CqlVector<Object>> codec = getCodec(testData.getDataType());
+    CqlVector<Object> vector = CqlVector.newInstance(testData.getValues());
+    assertThat(codec.format(vector)).isEqualTo(testData.getFormatted());
   }
 
   @Test
   @UseDataProvider("dataProvider")
-  public void should_parse(DataType dataType, Object[] values, String formatted, ByteBuffer bytes) {
-    TypeCodec<CqlVector<Object>> codec = getCodec(dataType);
-    assertThat(codec.parse(formatted)).isEqualTo(CqlVector.newInstance(values));
+  public void should_parse(TestDataContainer testData) {
+    TypeCodec<CqlVector<Object>> codec = getCodec(testData.getDataType());
+    assertThat(codec.parse(testData.getFormatted()))
+        .isEqualTo(CqlVector.newInstance(testData.getValues()));
   }
 
   @Test
   @UseDataProvider("dataProvider")
-  public void should_accept_data_type(
-      DataType dataType, Object[] values, String formatted, ByteBuffer bytes) {
-    TypeCodec<CqlVector<Object>> codec = getCodec(dataType);
-    assertThat(codec.accepts(new DefaultVectorType(dataType, 2))).isTrue();
+  public void should_accept_data_type(TestDataContainer testData) {
+    TypeCodec<CqlVector<Object>> codec = getCodec(testData.getDataType());
+    assertThat(codec.accepts(new DefaultVectorType(testData.getDataType(), 2))).isTrue();
     assertThat(codec.accepts(new DefaultVectorType(DataTypes.custom("non-existent"), 2))).isFalse();
   }
 
   @Test
   @UseDataProvider("dataProvider")
-  public void should_accept_vector_type_correct_dimension_only(
-      DataType dataType, Object[] values, String formatted, ByteBuffer bytes) {
-    TypeCodec<CqlVector<Object>> codec = getCodec(dataType);
-    assertThat(codec.accepts(new DefaultVectorType(dataType, 0))).isFalse();
-    assertThat(codec.accepts(new DefaultVectorType(dataType, 1))).isFalse();
-    assertThat(codec.accepts(new DefaultVectorType(dataType, 3))).isFalse();
+  public void should_accept_vector_type_correct_dimension_only(TestDataContainer testData) {
+    TypeCodec<CqlVector<Object>> codec = getCodec(testData.getDataType());
+    assertThat(codec.accepts(new DefaultVectorType(testData.getDataType(), 0))).isFalse();
+    assertThat(codec.accepts(new DefaultVectorType(testData.getDataType(), 1))).isFalse();
+    assertThat(codec.accepts(new DefaultVectorType(testData.getDataType(), 3))).isFalse();
   }
 
   @Test
   @UseDataProvider("dataProvider")
-  public void should_accept_generic_type(
-      DataType dataType, Object[] values, String formatted, ByteBuffer bytes) {
-    TypeCodec<CqlVector<Object>> codec = getCodec(dataType);
+  public void should_accept_generic_type(TestDataContainer testData) {
+    TypeCodec<CqlVector<Object>> codec = getCodec(testData.getDataType());
     assertThat(codec.accepts(codec.getJavaType())).isTrue();
   }
 
   @Test
   @UseDataProvider("dataProvider")
-  public void should_accept_raw_type(
-      DataType dataType, Object[] values, String formatted, ByteBuffer bytes) {
-    TypeCodec<CqlVector<Object>> codec = getCodec(dataType);
+  public void should_accept_raw_type(TestDataContainer testData) {
+    TypeCodec<CqlVector<Object>> codec = getCodec(testData.getDataType());
     assertThat(codec.accepts(CqlVector.class)).isTrue();
     assertThat(codec.accepts(Integer.class)).isFalse();
   }
 
   @Test
   @UseDataProvider("dataProvider")
-  public void should_accept_object(
-      DataType dataType, Object[] values, String formatted, ByteBuffer bytes) {
-    TypeCodec<CqlVector<Object>> codec = getCodec(dataType);
-    CqlVector<?> vector = CqlVector.newInstance(values);
+  public void should_accept_object(TestDataContainer testData) {
+    TypeCodec<CqlVector<Object>> codec = getCodec(testData.getDataType());
+    CqlVector<?> vector = CqlVector.newInstance(testData.getValues());
     assertThat(codec.accepts(vector)).isTrue();
     assertThat(codec.accepts(Integer.MIN_VALUE)).isFalse();
   }
@@ -259,5 +239,36 @@ public class VectorCodecTest {
   private static TypeCodec<CqlVector<Object>> getCodec(DataType dataType) {
     return TypeCodecs.vectorOf(
         DataTypes.vectorOf(dataType, 2), CodecRegistry.DEFAULT.codecFor(dataType));
+  }
+
+  private static class TestDataContainer {
+    private final DataType dataType;
+    private final Object[] values;
+    private final String formatted;
+    private final ByteBuffer bytes;
+
+    public TestDataContainer(
+        DataType dataType, Object[] values, String formatted, ByteBuffer bytes) {
+      this.dataType = dataType;
+      this.values = values;
+      this.formatted = formatted;
+      this.bytes = bytes;
+    }
+
+    public DataType getDataType() {
+      return dataType;
+    }
+
+    public Object[] getValues() {
+      return values;
+    }
+
+    public String getFormatted() {
+      return formatted;
+    }
+
+    public ByteBuffer getBytes() {
+      return bytes;
+    }
   }
 }

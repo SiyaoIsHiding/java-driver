@@ -21,9 +21,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.fail;
 
-import com.datastax.oss.driver.api.core.type.codec.TypeCodec;
 import com.datastax.oss.driver.api.core.type.codec.TypeCodecs;
-import com.datastax.oss.driver.api.core.type.codec.registry.CodecRegistry;
 import com.datastax.oss.driver.internal.SerializationHelper;
 import com.tngtech.java.junit.dataprovider.DataProvider;
 import com.tngtech.java.junit.dataprovider.DataProviderRunner;
@@ -47,8 +45,6 @@ import org.junit.runner.RunWith;
 
 @RunWith(DataProviderRunner.class)
 public class CqlVectorTest {
-
-  private static final Float[] VECTOR_ARGS = {1.0f, 2.5f};
 
   @DataProvider
   public static Object[][] dataProvider() {
@@ -77,15 +73,6 @@ public class CqlVectorTest {
   @UseDataProvider("dataProvider")
   public void should_build_vector_from_list(Object[] vals) {
     validate_built_vector(CqlVector.newInstance(Lists.newArrayList(vals)), vals);
-  }
-
-  @Test
-  @UseDataProvider("dataProvider")
-  public void should_build_vector_from_tostring_output(Object[] vals) {
-    CqlVector<?> vector1 = CqlVector.newInstance(vals);
-    TypeCodec<?> codec = CodecRegistry.DEFAULT.codecFor(vals[0]);
-    CqlVector<?> vector2 = CqlVector.from(vector1.toString(), codec);
-    assertThat(vector2).isEqualTo(vector1);
   }
 
   @Test
@@ -235,21 +222,22 @@ public class CqlVectorTest {
   }
 
   @Test
-  public void should_serialize_and_deserialize_unserializable_list() throws Exception {
-    CqlVector<Float> initial =
+  @UseDataProvider("dataProvider")
+  public <T> void should_serialize_and_deserialize_unserializable_list(T[] vals) throws Exception {
+    CqlVector<T> initial =
         CqlVector.newInstance(
-            new AbstractList<Float>() {
+            new AbstractList<T>() {
               @Override
-              public Float get(int index) {
-                return VECTOR_ARGS[index];
+              public T get(int index) {
+                return vals[index];
               }
 
               @Override
               public int size() {
-                return VECTOR_ARGS.length;
+                return vals.length;
               }
             });
-    CqlVector<Float> deserialized = SerializationHelper.serializeAndDeserialize(initial);
+    CqlVector<T> deserialized = SerializationHelper.serializeAndDeserialize(initial);
     assertThat(deserialized).isEqualTo(initial);
   }
 

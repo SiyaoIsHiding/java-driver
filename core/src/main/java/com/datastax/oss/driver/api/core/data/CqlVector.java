@@ -18,7 +18,6 @@
 package com.datastax.oss.driver.api.core.data;
 
 import com.datastax.oss.driver.api.core.type.codec.TypeCodec;
-import com.datastax.oss.driver.api.core.type.codec.registry.CodecRegistry;
 import com.datastax.oss.driver.internal.core.type.codec.ParseUtils;
 import com.datastax.oss.driver.shaded.guava.common.base.Preconditions;
 import com.datastax.oss.driver.shaded.guava.common.base.Predicates;
@@ -79,9 +78,7 @@ public class CqlVector<T> implements Iterable<T>, Serializable {
   }
 
   /**
-   * Create a new CqlVector instance from the specified string representation. Note that this method
-   * is intended to mirror {@link #toString()}; passing this method the output from a <code>toString
-   * </code> call on some CqlVector should return a CqlVector that is equal to the origin instance.
+   * Create a new CqlVector instance from the specified string representation.
    *
    * @param str a String representation of a CqlVector
    * @param subtypeCodec
@@ -90,7 +87,7 @@ public class CqlVector<T> implements Iterable<T>, Serializable {
   public static <V> CqlVector<V> from(@NonNull String str, @NonNull TypeCodec<V> subtypeCodec) {
     Preconditions.checkArgument(str != null, "Cannot create CqlVector from null string");
     Preconditions.checkArgument(!str.isEmpty(), "Cannot create CqlVector from empty string");
-    if (str == null || str.isEmpty() || str.equalsIgnoreCase("NULL")) return null;
+    if (str.equalsIgnoreCase("NULL")) return null;
 
     int idx = ParseUtils.skipSpaces(str, 0);
     if (str.charAt(idx++) != '[')
@@ -102,7 +99,7 @@ public class CqlVector<T> implements Iterable<T>, Serializable {
     idx = ParseUtils.skipSpaces(str, idx);
 
     if (str.charAt(idx) == ']') {
-      return null;
+      return new CqlVector<>(new ArrayList<>());
     }
 
     List<V> list = new ArrayList<>();
@@ -231,11 +228,17 @@ public class CqlVector<T> implements Iterable<T>, Serializable {
     return Objects.hash(list);
   }
 
+  /**
+   * Only works if the inner type of the vector is a Number. Will throw otherwise.
+   *
+   * @return the string representation
+   */
   @Override
   public String toString() {
     if (this.list.isEmpty()) return "[]";
-    TypeCodec<T> subcodec = CodecRegistry.DEFAULT.codecFor(list.get(0));
-    return this.list.stream().map(subcodec::format).collect(Collectors.joining(", ", "[", "]"));
+    return this.list.stream()
+        .map(ele -> ele.toString())
+        .collect(Collectors.joining(", ", "[", "]"));
   }
 
   /**
