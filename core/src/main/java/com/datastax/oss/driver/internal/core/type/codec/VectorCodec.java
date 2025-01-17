@@ -37,9 +37,9 @@ import java.util.stream.Collectors;
 
 public class VectorCodec<SubtypeT> implements TypeCodec<CqlVector<SubtypeT>> {
 
-  protected final VectorType cqlType;
+  private final VectorType cqlType;
   private final GenericType<CqlVector<SubtypeT>> javaType;
-  protected final TypeCodec<SubtypeT> subtypeCodec;
+  private final TypeCodec<SubtypeT> subtypeCodec;
 
   public VectorCodec(@NonNull VectorType cqlType, @NonNull TypeCodec<SubtypeT> subtypeCodec) {
     this.cqlType = cqlType;
