@@ -35,6 +35,7 @@ import com.datastax.oss.driver.api.core.metadata.NodeStateListener;
 import com.datastax.oss.driver.api.core.metadata.schema.SchemaChangeListener;
 import com.datastax.oss.driver.api.core.ssl.ProgrammaticSslEngineFactory;
 import com.datastax.oss.driver.api.core.ssl.SslEngineFactory;
+import com.datastax.oss.driver.api.core.tracker.DistributedTraceIdGenerator;
 import com.datastax.oss.driver.api.core.tracker.RequestTracker;
 import com.datastax.oss.driver.api.core.type.codec.TypeCodec;
 import com.datastax.oss.driver.api.core.type.codec.registry.MutableCodecRegistry;
@@ -318,6 +319,19 @@ public abstract class SessionBuilder<SelfT extends SessionBuilder, SessionT> {
     return self;
   }
 
+  /**
+   * Registers a distributed trace ID generator The driver will use the distributed trace ID in the
+   * logs So that users can correlate logs about the same request from different loggers.
+   *
+   * @param distributedTraceIdGenerator
+   * @return
+   */
+  @NonNull
+  public SelfT withDistributedTraceIdGenerator(
+      @NonNull DistributedTraceIdGenerator distributedTraceIdGenerator) {
+    this.programmaticArgumentsBuilder.withDistributedTraceIdGenerator(distributedTraceIdGenerator);
+    return self;
+  }
   /**
    * Registers an authentication provider to use with the session.
    *

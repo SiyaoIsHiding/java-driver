@@ -281,6 +281,11 @@ public class TypedDriverOption<ValueT> {
       new TypedDriverOption<>(
           DefaultDriverOption.REQUEST_TRACKER_CLASSES, GenericType.listOf(String.class));
 
+  /** The class of a session-wide component that generates distributed trace IDs. */
+  public static final TypedDriverOption<String> DISTRIBUTED_TRACE_ID_GENERATOR_CLASS =
+      new TypedDriverOption<>(
+          DefaultDriverOption.DISTRIBUTED_TRACE_ID_GENERATOR_CLASS, GenericType.STRING);
+
   /** Whether to log successful requests. */
   public static final TypedDriverOption<Boolean> REQUEST_LOGGER_SUCCESS_ENABLED =
       new TypedDriverOption<>(

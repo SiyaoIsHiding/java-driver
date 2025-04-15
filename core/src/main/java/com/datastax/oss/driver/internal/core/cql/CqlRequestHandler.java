@@ -44,6 +44,7 @@ import com.datastax.oss.driver.api.core.servererrors.UnavailableException;
 import com.datastax.oss.driver.api.core.servererrors.WriteTimeoutException;
 import com.datastax.oss.driver.api.core.session.throttling.RequestThrottler;
 import com.datastax.oss.driver.api.core.session.throttling.Throttled;
+import com.datastax.oss.driver.api.core.tracker.DistributedTraceIdGenerator;
 import com.datastax.oss.driver.api.core.tracker.RequestTracker;
 import com.datastax.oss.driver.internal.core.adminrequest.ThrottledAdminRequestHandler;
 import com.datastax.oss.driver.internal.core.adminrequest.UnexpectedResponseException;
@@ -125,6 +126,7 @@ public class CqlRequestHandler implements Throttled {
   private final List<NodeResponseCallback> inFlightCallbacks;
   private final RequestThrottler throttler;
   private final RequestTracker requestTracker;
+  private final DistributedTraceIdGenerator distributedTraceIdGenerator;
   private final SessionMetricUpdater sessionMetricUpdater;
   private final DriverExecutionProfile executionProfile;
 
@@ -139,7 +141,8 @@ public class CqlRequestHandler implements Throttled {
       String sessionLogPrefix) {
 
     this.startTimeNanos = System.nanoTime();
-    this.logPrefix = sessionLogPrefix + "|" + this.hashCode();
+    this.distributedTraceIdGenerator = context.getDistributedTraceIdGenerator();
+    this.logPrefix = this.distributedTraceIdGenerator.getSessionRequestId(statement);
     LOG.trace("[{}] Creating new handler for request {}", logPrefix, statement);
 
     this.initialStatement = statement;
@@ -489,7 +492,8 @@ public class CqlRequestHandler implements Throttled {
       this.execution = execution;
       this.retryCount = retryCount;
       this.scheduleNextExecution = scheduleNextExecution;
-      this.logPrefix = logPrefix + "|" + execution;
+      this.logPrefix =
+          CqlRequestHandler.this.distributedTraceIdGenerator.getNodeRequestId(statement, logPrefix);
     }
 
     // this gets invoked once the write completes.

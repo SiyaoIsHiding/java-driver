@@ -44,6 +44,7 @@ import com.datastax.oss.driver.api.core.session.throttling.RequestThrottler;
 import com.datastax.oss.driver.api.core.specex.SpeculativeExecutionPolicy;
 import com.datastax.oss.driver.api.core.ssl.SslEngineFactory;
 import com.datastax.oss.driver.api.core.time.TimestampGenerator;
+import com.datastax.oss.driver.api.core.tracker.DistributedTraceIdGenerator;
 import com.datastax.oss.driver.api.core.tracker.RequestTracker;
 import com.datastax.oss.driver.api.core.type.codec.TypeCodec;
 import com.datastax.oss.driver.api.core.type.codec.registry.CodecRegistry;
@@ -221,6 +222,7 @@ public class DefaultDriverContext implements InternalDriverContext {
   private final LazyReference<NodeStateListener> nodeStateListenerRef;
   private final LazyReference<SchemaChangeListener> schemaChangeListenerRef;
   private final LazyReference<RequestTracker> requestTrackerRef;
+  private final LazyReference<DistributedTraceIdGenerator> distributedTraceIdGeneratorRef;
   private final LazyReference<Optional<AuthProvider>> authProviderRef;
   private final LazyReference<List<LifecycleListener>> lifecycleListenersRef =
       new LazyReference<>("lifecycleListeners", this::buildLifecycleListeners, cycleDetector);
@@ -282,6 +284,13 @@ public class DefaultDriverContext implements InternalDriverContext {
     this.requestTrackerRef =
         new LazyReference<>(
             "requestTracker", () -> buildRequestTracker(requestTrackerFromBuilder), cycleDetector);
+    this.distributedTraceIdGeneratorRef =
+        new LazyReference<>(
+            "distributedTraceIdGenerator",
+            () ->
+                buildDistributedTraceIdGenerator(
+                    programmaticArguments.getDistributedTraceIdGenerator()),
+            cycleDetector);
     this.sslEngineFactoryRef =
         new LazyReference<>(
             "sslEngineFactory",
@@ -709,6 +718,23 @@ public class DefaultDriverContext implements InternalDriverContext {
     }
   }
 
+  protected DistributedTraceIdGenerator buildDistributedTraceIdGenerator(
+      DistributedTraceIdGenerator distributedTraceIdGenerator) {
+    return (distributedTraceIdGenerator != null)
+        ? distributedTraceIdGenerator
+        : Reflection.buildFromConfig(
+                this,
+                DefaultDriverOption.DISTRIBUTED_TRACE_ID_GENERATOR_CLASS,
+                DistributedTraceIdGenerator.class,
+                "com.datastax.oss.driver.internal.core.tracker")
+            .orElseThrow(
+                () ->
+                    new IllegalArgumentException(
+                        String.format(
+                            "Missing distributed trace ID generator, check your configuration (%s)",
+                            DefaultDriverOption.DISTRIBUTED_TRACE_ID_GENERATOR_CLASS)));
+  }
+
   protected Optional<AuthProvider> buildAuthProvider(AuthProvider authProviderFromBuilder) {
     return (authProviderFromBuilder != null)
         ? Optional.of(authProviderFromBuilder)
@@ -971,6 +997,12 @@ public class DefaultDriverContext implements InternalDriverContext {
   @Override
   public RequestTracker getRequestTracker() {
     return requestTrackerRef.get();
+  }
+
+  @NonNull
+  @Override
+  public DistributedTraceIdGenerator getDistributedTraceIdGenerator() {
+    return distributedTraceIdGeneratorRef.get();
   }
 
   @Nullable
