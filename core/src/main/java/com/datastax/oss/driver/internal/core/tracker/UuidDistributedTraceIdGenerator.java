@@ -27,12 +27,14 @@ public class UuidDistributedTraceIdGenerator implements DistributedTraceIdGenera
   public UuidDistributedTraceIdGenerator(DriverContext context) {}
 
   @Override
-  public String getSessionRequestId(@NonNull Request statement) {
+  public String getSessionRequestId(
+      @NonNull Request statement, @NonNull String sessionName, int hashCode) {
     return Uuids.random().toString();
   }
 
   @Override
-  public String getNodeRequestId(@NonNull Request statement, @NonNull String sessionRequestId) {
+  public String getNodeRequestId(
+      @NonNull Request statement, @NonNull String sessionRequestId, int executionCount) {
     return sessionRequestId + "-" + Uuids.random().toString();
   }
 }

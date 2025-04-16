@@ -21,7 +21,8 @@ import com.datastax.oss.driver.api.core.session.Request;
 import edu.umd.cs.findbugs.annotations.NonNull;
 
 public interface DistributedTraceIdGenerator {
-  String getSessionRequestId(@NonNull Request statement);
+  String getSessionRequestId(@NonNull Request statement, @NonNull String sessionName, int hashCode);
 
-  String getNodeRequestId(@NonNull Request statement, @NonNull String sessionRequestId);
+  String getNodeRequestId(
+      @NonNull Request statement, @NonNull String sessionRequestId, int executionCount);
 }

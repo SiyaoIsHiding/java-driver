@@ -145,7 +145,9 @@ public class CqlRequestHandler implements Throttled {
 
     this.startTimeNanos = System.nanoTime();
     this.distributedTraceIdGenerator = context.getDistributedTraceIdGenerator();
-    this.logPrefix = this.distributedTraceIdGenerator.getSessionRequestId(statement);
+    this.logPrefix =
+        this.distributedTraceIdGenerator.getSessionRequestId(
+            statement, sessionLogPrefix, this.hashCode());
     LOG.trace("[{}] Creating new handler for request {}", logPrefix, statement);
 
     this.initialStatement = statement;
@@ -259,7 +261,9 @@ public class CqlRequestHandler implements Throttled {
     if (result.isDone()) {
       return;
     }
-    String nodeRequestId = this.distributedTraceIdGenerator.getNodeRequestId(statement, logPrefix);
+    String nodeRequestId =
+        this.distributedTraceIdGenerator.getNodeRequestId(
+            statement, logPrefix, currentExecutionIndex);
     if (!this.customPayloadKey.isEmpty()) {
       // We cannot do statement.getCustomPayload().put() because the default empty map is abstract
       // But this will create new Statement instance for every request. We might want to optimize

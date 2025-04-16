@@ -22,17 +22,19 @@ import com.datastax.oss.driver.api.core.session.Request;
 import com.datastax.oss.driver.api.core.tracker.DistributedTraceIdGenerator;
 import edu.umd.cs.findbugs.annotations.NonNull;
 
-public class NoopDistributedTraceIdGenerator implements DistributedTraceIdGenerator {
+public class DefaultDistributedTraceIdGenerator implements DistributedTraceIdGenerator {
 
-  public NoopDistributedTraceIdGenerator(DriverContext context) {}
+  public DefaultDistributedTraceIdGenerator(DriverContext context) {}
 
   @Override
-  public String getSessionRequestId(@NonNull Request statement) {
-    return "";
+  public String getSessionRequestId(
+      @NonNull Request statement, @NonNull String sessionName, int hashCode) {
+    return sessionName + "|" + hashCode;
   }
 
   @Override
-  public String getNodeRequestId(@NonNull Request statement, @NonNull String sessionRequestId) {
-    return "";
+  public String getNodeRequestId(
+      @NonNull Request statement, @NonNull String sessionRequestId, int executionCount) {
+    return sessionRequestId + "|" + executionCount;
   }
 }
