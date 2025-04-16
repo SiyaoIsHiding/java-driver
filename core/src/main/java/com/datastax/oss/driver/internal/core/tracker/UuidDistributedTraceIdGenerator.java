@@ -22,17 +22,17 @@ import com.datastax.oss.driver.api.core.session.Request;
 import com.datastax.oss.driver.api.core.tracker.DistributedTraceIdGenerator;
 import com.datastax.oss.driver.api.core.uuid.Uuids;
 import edu.umd.cs.findbugs.annotations.NonNull;
-import edu.umd.cs.findbugs.annotations.Nullable;
 
 public class UuidDistributedTraceIdGenerator implements DistributedTraceIdGenerator {
-    public UuidDistributedTraceIdGenerator(DriverContext context) {}
-    @Override
-    public String getSessionRequestId(@NonNull Request statement) {
-        return Uuids.random().toString();
-    }
+  public UuidDistributedTraceIdGenerator(DriverContext context) {}
 
-    @Override
-    public String getNodeRequestId(@NonNull Request statement, @Nullable String sessionRequestId) {
-        return sessionRequestId + "-" + Uuids.random().toString();
-    }
+  @Override
+  public String getSessionRequestId(@NonNull Request statement) {
+    return Uuids.random().toString();
+  }
+
+  @Override
+  public String getNodeRequestId(@NonNull Request statement, @NonNull String sessionRequestId) {
+    return sessionRequestId + "-" + Uuids.random().toString();
+  }
 }

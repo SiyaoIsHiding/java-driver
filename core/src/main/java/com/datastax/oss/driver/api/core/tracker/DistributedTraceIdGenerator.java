@@ -19,10 +19,9 @@ package com.datastax.oss.driver.api.core.tracker;
 
 import com.datastax.oss.driver.api.core.session.Request;
 import edu.umd.cs.findbugs.annotations.NonNull;
-import edu.umd.cs.findbugs.annotations.Nullable;
 
 public interface DistributedTraceIdGenerator {
   String getSessionRequestId(@NonNull Request statement);
 
-  String getNodeRequestId(@NonNull Request statement, @Nullable String sessionRequestId);
+  String getNodeRequestId(@NonNull Request statement, @NonNull String sessionRequestId);
 }

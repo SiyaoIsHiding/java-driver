@@ -1001,7 +1001,14 @@ public enum DefaultDriverOption implements DriverOption {
    *
    * <p>Value-type: {@link String}
    */
-  DISTRIBUTED_TRACE_ID_GENERATOR_CLASS("advanced.distributed-tracing.id-generator.class");
+  DISTRIBUTED_TRACE_ID_GENERATOR_CLASS("advanced.distributed-tracing.id-generator.class"),
+
+  /**
+   * If not empty, the driver will write the distributed trace ID to this key in the custom payload
+   *
+   * <p>Value-type: {@link String}
+   */
+  DISTRIBUTED_TRACE_ID_CUSTOM_PAYLOAD_KEY("advanced.distributed-tracing.custom-payload-with-key");
 
   private final String path;
 

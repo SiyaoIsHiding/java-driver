@@ -293,6 +293,7 @@ public class OptionsMap implements Serializable {
     map.put(TypedDriverOption.REQUEST_LOG_WARNINGS, true);
     map.put(
         TypedDriverOption.DISTRIBUTED_TRACE_ID_GENERATOR_CLASS, "NoopDistributedTraceIdGenerator");
+    map.put(TypedDriverOption.DISTRIBUTED_TRACE_ID_CUSTOM_PAYLOAD_KEY, "");
     map.put(TypedDriverOption.GRAPH_PAGING_ENABLED, "AUTO");
     map.put(TypedDriverOption.GRAPH_CONTINUOUS_PAGING_PAGE_SIZE, requestPageSize);
     map.put(TypedDriverOption.GRAPH_CONTINUOUS_PAGING_MAX_PAGES, continuousMaxPages);

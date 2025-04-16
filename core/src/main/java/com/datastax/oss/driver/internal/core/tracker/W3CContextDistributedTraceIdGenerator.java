@@ -20,19 +20,27 @@ package com.datastax.oss.driver.internal.core.tracker;
 import com.datastax.oss.driver.api.core.context.DriverContext;
 import com.datastax.oss.driver.api.core.session.Request;
 import com.datastax.oss.driver.api.core.tracker.DistributedTraceIdGenerator;
+import com.datastax.oss.driver.shaded.guava.common.io.BaseEncoding;
 import edu.umd.cs.findbugs.annotations.NonNull;
+import java.util.Random;
 
-public class NoopDistributedTraceIdGenerator implements DistributedTraceIdGenerator {
+public class W3CContextDistributedTraceIdGenerator implements DistributedTraceIdGenerator {
+  Random random = new Random();
+  BaseEncoding baseEncoding = BaseEncoding.base16().lowerCase();
 
-  public NoopDistributedTraceIdGenerator(DriverContext context) {}
+  public W3CContextDistributedTraceIdGenerator(DriverContext context) {}
 
   @Override
   public String getSessionRequestId(@NonNull Request statement) {
-    return "";
+    byte[] bytes = new byte[16];
+    random.nextBytes(bytes);
+    return baseEncoding.encode(bytes);
   }
 
   @Override
   public String getNodeRequestId(@NonNull Request statement, @NonNull String sessionRequestId) {
-    return "";
+    byte[] bytes = new byte[8];
+    random.nextBytes(bytes);
+    return String.format("00-%s-%s-00", sessionRequestId, baseEncoding.encode(bytes));
   }
 }
