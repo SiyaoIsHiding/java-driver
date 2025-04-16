@@ -37,6 +37,7 @@ import com.datastax.oss.driver.api.core.session.Request;
 import com.datastax.oss.driver.api.core.session.Session;
 import com.datastax.oss.driver.api.core.specex.SpeculativeExecutionPolicy;
 import com.datastax.oss.driver.api.core.time.TimestampGenerator;
+import com.datastax.oss.driver.api.core.tracker.DistributedTraceIdGenerator;
 import com.datastax.oss.driver.api.core.type.codec.registry.CodecRegistry;
 import com.datastax.oss.driver.internal.core.DefaultConsistencyLevelRegistry;
 import com.datastax.oss.driver.internal.core.ProtocolFeature;
@@ -51,6 +52,7 @@ import com.datastax.oss.driver.internal.core.pool.ChannelPool;
 import com.datastax.oss.driver.internal.core.servererrors.DefaultWriteTypeRegistry;
 import com.datastax.oss.driver.internal.core.session.DefaultSession;
 import com.datastax.oss.driver.internal.core.session.throttling.PassThroughRequestThrottler;
+import com.datastax.oss.driver.internal.core.tracker.DefaultDistributedTraceIdGenerator;
 import com.datastax.oss.driver.internal.core.tracker.NoopRequestTracker;
 import com.datastax.oss.driver.internal.core.util.concurrent.CapturingTimer;
 import com.datastax.oss.driver.internal.core.util.concurrent.CapturingTimer.CapturedTimeout;
@@ -114,6 +116,8 @@ public class RequestHandlerTestHarness implements AutoCloseable {
     when(defaultProfile.getBoolean(DefaultDriverOption.REQUEST_DEFAULT_IDEMPOTENCE))
         .thenReturn(builder.defaultIdempotence);
     when(defaultProfile.getBoolean(DefaultDriverOption.PREPARE_ON_ALL_NODES)).thenReturn(true);
+    when(defaultProfile.getString(DefaultDriverOption.DISTRIBUTED_TRACE_ID_CUSTOM_PAYLOAD_KEY))
+        .thenReturn("");
 
     when(config.getDefaultProfile()).thenReturn(defaultProfile);
     when(context.getConfig()).thenReturn(config);
@@ -124,6 +128,10 @@ public class RequestHandlerTestHarness implements AutoCloseable {
     when(context.getLoadBalancingPolicyWrapper()).thenReturn(loadBalancingPolicyWrapper);
 
     when(context.getRetryPolicy(anyString())).thenReturn(retryPolicy);
+
+    DistributedTraceIdGenerator distributedTraceIdGenerator =
+        new DefaultDistributedTraceIdGenerator(context);
+    when(context.getDistributedTraceIdGenerator()).thenReturn(distributedTraceIdGenerator);
 
     // Disable speculative executions by default
     when(speculativeExecutionPolicy.nextExecution(
