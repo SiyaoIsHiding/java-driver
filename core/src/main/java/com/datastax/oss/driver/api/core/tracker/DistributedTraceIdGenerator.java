@@ -21,8 +21,26 @@ import com.datastax.oss.driver.api.core.session.Request;
 import edu.umd.cs.findbugs.annotations.NonNull;
 
 public interface DistributedTraceIdGenerator {
+  /**
+   * Generates a unique identifier for the session request. This identifier will be added to logs.
+   *
+   * @param statement the statement to be executed
+   * @param sessionName the name of the session
+   * @param hashCode the hashcode of the CqlRequestHandler
+   * @return a unique identifier for the session request
+   */
   String getSessionRequestId(@NonNull Request statement, @NonNull String sessionName, int hashCode);
 
+  /**
+   * Generates a unique identifier for the node request. This identifier will be added to logs, and
+   * propagated to request trackers.
+   *
+   * @param statement the statement to be executed
+   * @param sessionRequestId the session request identifier
+   * @param executionCount the number of previous node requests for this session request, due to
+   *     retries or speculative executions
+   * @return a unique identifier for the node request
+   */
   String getNodeRequestId(
       @NonNull Request statement, @NonNull String sessionRequestId, int executionCount);
 }
