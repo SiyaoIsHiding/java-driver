@@ -66,7 +66,7 @@ public class DistributedTraceIdGeneratorIT {
       String query = "SELECT * FROM system.local";
       ResultSet rs = session.execute(query);
       ByteBuffer id = rs.getExecutionInfo().getRequest().getCustomPayload().get("trace_key");
-      assertThat(id.array().length).isEqualTo(73);
+      assertThat(id.remaining()).isEqualTo(73);
     }
   }
 
@@ -83,7 +83,7 @@ public class DistributedTraceIdGeneratorIT {
       String query = "SELECT * FROM system.local";
       ResultSet rs = session.execute(query);
       ByteBuffer id = rs.getExecutionInfo().getRequest().getCustomPayload().get("trace_key");
-      assertThat(id.array().length).isEqualTo(55);
+      assertThat(id.remaining()).isEqualTo(55);
     }
   }
 
