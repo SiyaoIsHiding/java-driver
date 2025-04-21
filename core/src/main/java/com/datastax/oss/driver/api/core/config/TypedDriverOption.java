@@ -229,6 +229,10 @@ public class TypedDriverOption<ValueT> {
    */
   public static final TypedDriverOption<Boolean> SSL_HOSTNAME_VALIDATION =
       new TypedDriverOption<>(DefaultDriverOption.SSL_HOSTNAME_VALIDATION, GenericType.BOOLEAN);
+
+  public static final TypedDriverOption<Boolean> SSL_ALLOW_DNS_REVERSE_LOOKUP_SAN =
+      new TypedDriverOption<>(
+          DefaultDriverOption.SSL_ALLOW_DNS_REVERSE_LOOKUP_SAN, GenericType.BOOLEAN);
   /** The location of the keystore file. */
   public static final TypedDriverOption<String> SSL_KEYSTORE_PATH =
       new TypedDriverOption<>(DefaultDriverOption.SSL_KEYSTORE_PATH, GenericType.STRING);
@@ -276,6 +280,18 @@ public class TypedDriverOption<ValueT> {
   public static final TypedDriverOption<List<String>> REQUEST_TRACKER_CLASSES =
       new TypedDriverOption<>(
           DefaultDriverOption.REQUEST_TRACKER_CLASSES, GenericType.listOf(String.class));
+
+  /** The class of a session-wide component that generates distributed trace IDs. */
+  public static final TypedDriverOption<String> DISTRIBUTED_TRACE_ID_GENERATOR_CLASS =
+      new TypedDriverOption<>(
+          DefaultDriverOption.DISTRIBUTED_TRACE_ID_GENERATOR_CLASS, GenericType.STRING);
+
+  /**
+   * If not empty, the driver will write the distributed trace ID to this key in the custom payload
+   */
+  public static final TypedDriverOption<String> DISTRIBUTED_TRACE_ID_CUSTOM_PAYLOAD_KEY =
+      new TypedDriverOption<>(
+          DefaultDriverOption.DISTRIBUTED_TRACE_ID_CUSTOM_PAYLOAD_KEY, GenericType.STRING);
 
   /** Whether to log successful requests. */
   public static final TypedDriverOption<Boolean> REQUEST_LOGGER_SUCCESS_ENABLED =

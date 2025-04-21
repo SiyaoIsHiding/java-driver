@@ -988,7 +988,27 @@ public enum DefaultDriverOption implements DriverOption {
    * <p>Value type: {@link java.util.List List}&#60;{@link String}&#62;
    */
   LOAD_BALANCING_DC_FAILOVER_PREFERRED_REMOTE_DCS(
-      "advanced.load-balancing-policy.dc-failover.preferred-remote-dcs");
+      "advanced.load-balancing-policy.dc-failover.preferred-remote-dcs"),
+  /**
+   * Whether or not to do a DNS reverse-lookup of provided server addresses for SAN addresses.
+   *
+   * <p>Value-type: boolean
+   */
+  SSL_ALLOW_DNS_REVERSE_LOOKUP_SAN("advanced.ssl-engine-factory.allow-dns-reverse-lookup-san"),
+
+  /**
+   * The class of session-wide component that generates distributed trace IDs.
+   *
+   * <p>Value-type: {@link String}
+   */
+  DISTRIBUTED_TRACE_ID_GENERATOR_CLASS("advanced.distributed-tracing.id-generator.class"),
+
+  /**
+   * If not empty, the driver will write the distributed trace ID to this key in the custom payload
+   *
+   * <p>Value-type: {@link String}
+   */
+  DISTRIBUTED_TRACE_ID_CUSTOM_PAYLOAD_KEY("advanced.distributed-tracing.custom-payload-with-key");
 
   private final String path;
 
