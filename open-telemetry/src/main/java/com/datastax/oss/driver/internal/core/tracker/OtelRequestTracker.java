@@ -424,12 +424,18 @@ public class OtelRequestTracker implements RequestTracker {
    * CqlRequestHandler.NodeResponseCallback#NodeResponseCallback(Statement, Node, Queue,
    * DriverChannel, int, int, boolean, String) NodeResponseCallback}
    *
-   * @param nodePrefix s0|1716164115|0
-   * @return the request prefix, like s0|1716164115
+   * @param nodePrefix, like 00-4e3bdd4533fd219cd1aba8bafbf0efec-5d0e1d1e35d36120-01
+   * @return the session request prefix, like 4e3bdd4533fd219cd1aba8bafbf0efec
    */
   private static String nodePrefixToRequestPrefix(String nodePrefix) {
-    int lastSeparatorIndex = nodePrefix.lastIndexOf("|");
-    return nodePrefix.substring(0, lastSeparatorIndex);
+    if (nodePrefix.lastIndexOf("|") != -1) {
+      // it's the default format
+      int lastSeparatorIndex = nodePrefix.lastIndexOf("|");
+      return nodePrefix.substring(0, lastSeparatorIndex);
+    } else {
+      // it's the W3C context format
+      return nodePrefix.substring(3, 35);
+    }
   }
 
   @Nullable
