@@ -36,6 +36,7 @@ import com.datastax.oss.driver.api.core.metadata.schema.SchemaChangeListener;
 import com.datastax.oss.driver.api.core.ssl.ProgrammaticSslEngineFactory;
 import com.datastax.oss.driver.api.core.ssl.SslEngineFactory;
 import com.datastax.oss.driver.api.core.tracker.DistributedTraceIdGenerator;
+import com.datastax.oss.driver.api.core.tracker.OtelSupport;
 import com.datastax.oss.driver.api.core.tracker.RequestTracker;
 import com.datastax.oss.driver.api.core.type.codec.TypeCodec;
 import com.datastax.oss.driver.api.core.type.codec.registry.MutableCodecRegistry;
@@ -330,6 +331,13 @@ public abstract class SessionBuilder<SelfT extends SessionBuilder, SessionT> {
   public SelfT withDistributedTraceIdGenerator(
       @NonNull DistributedTraceIdGenerator distributedTraceIdGenerator) {
     this.programmaticArgumentsBuilder.withDistributedTraceIdGenerator(distributedTraceIdGenerator);
+    return self;
+  }
+
+  @NonNull
+  public SelfT withOtelSupport(@NonNull OtelSupport otelSupport) {
+    this.programmaticArgumentsBuilder.withDistributedTraceIdGenerator(otelSupport);
+    this.programmaticArgumentsBuilder.addRequestTracker(otelSupport);
     return self;
   }
   /**
