@@ -3,6 +3,7 @@ name: CI
 on:
   push:
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -14,8 +15,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: ['8', '11', '17', '21']       # JDK used for TEST phase
-        SERVER_VERSION: ['3.11', '4.0', '4.1', '5.0']  # Cassandra minor versions to test against
+        java: ['8', '11', '17', '21']              # JDK used for TEST phase
+        SERVER_VERSION: ['3.11', '4.0', '4.1', '5.0']  # Cassandra minor versions
 
     steps:
       - name: Checkout
@@ -39,12 +40,12 @@ jobs:
         with:
           maven-version: '3.8.8'
 
-      # ---- Install ALL required JDKs via setup-java and record their homes ----
+      # ---- Install ALL required Zulu JDKs and record their homes ----
       # JDK 8
-      - name: Install Temurin 8 & record JAVA8_HOME
+      - name: Install Zulu 8 & record JAVA8_HOME
         uses: actions/setup-java@v5
         with:
-          distribution: temurin
+          distribution: zulu
           java-version: '8'
           cache: maven
       - name: Record JAVA8_HOME and set default JAVA_HOME
@@ -53,28 +54,28 @@ jobs:
           echo "JAVA_HOME=$JAVA_HOME" >> "$GITHUB_ENV"
 
       # JDK 11
-      - name: Install Temurin 11 & record JAVA11_HOME
+      - name: Install Zulu 11 & record JAVA11_HOME
         uses: actions/setup-java@v5
         with:
-          distribution: temurin
+          distribution: zulu
           java-version: '11'
       - name: Record JAVA11_HOME
         run: echo "JAVA11_HOME=$JAVA_HOME" >> "$GITHUB_ENV"
 
       # JDK 17
-      - name: Install Temurin 17 & record JAVA17_HOME
+      - name: Install Zulu 17 & record JAVA17_HOME
         uses: actions/setup-java@v5
         with:
-          distribution: temurin
+          distribution: zulu
           java-version: '17'
       - name: Record JAVA17_HOME
         run: echo "JAVA17_HOME=$JAVA_HOME" >> "$GITHUB_ENV"
 
       # JDK 21
-      - name: Install Temurin 21 & record JAVA21_HOME
+      - name: Install Zulu 21 & record JAVA21_HOME
         uses: actions/setup-java@v5
         with:
-          distribution: temurin
+          distribution: zulu
           java-version: '21'
       - name: Record JAVA21_HOME
         run: echo "JAVA21_HOME=$JAVA_HOME" >> "$GITHUB_ENV"
@@ -84,21 +85,21 @@ jobs:
         run: printenv | sort
 
       # ---- Build once with Java 8 (skip tests) ----
-      - name: Switch to Java 8 for build
+      - name: Switch to Zulu 8 for build
         uses: actions/setup-java@v5
         with:
-          distribution: temurin
+          distribution: zulu
           java-version: '8'
           cache: maven
 
       - name: Build (Java 8, skip tests)
         run: mvn -B -V install -DskipTests -Dmaven.javadoc.skip=true
 
-      # ---- Test using matrix JDK and SERVER_VERSION ----
-      - name: Switch to Java ${{ matrix.java }} for tests
+      # ---- Test using matrix JDK and resolved latest patch for selected minor ----
+      - name: Switch to Zulu ${{ matrix.java }} for tests
         uses: actions/setup-java@v5
         with:
-          distribution: temurin
+          distribution: zulu
           java-version: ${{ matrix.java }}
           cache: maven
 
@@ -117,7 +118,7 @@ jobs:
           echo "Resolved Cassandra ${SERVER_VERSION}.x -> ${PATCH_SERVER_VERSION}"
           echo "PATCH_SERVER_VERSION=$PATCH_SERVER_VERSION" >> "$GITHUB_ENV"
 
-      - name: Test (JDK ${{ matrix.java }}, Cassandra ${{ matrix.SERVER_VERSION }})
+      - name: Run tests
         env:
           TEST_JAVA_MAJOR_VERSION: ${{ matrix.java }}
         run: |
@@ -133,36 +134,34 @@ jobs:
             -DtestJavaHome="$JAVA_HOME" \
             -Dccm.version="${PATCH_SERVER_VERSION}" \
             -Dccm.dse=false \
-            -Dmaven.test.failure.ignore=true \
-            -Dmaven.javadoc.skip=true
-      # ----- Collect CCM logs on failure -----
-      - name: Zip CCM startup logs
+            -Dmaven.javadoc.skip=true \
+
+      - name: Publish Test Results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: ${{ !cancelled() }}
+        with:
+          files: |
+            **/target/surefire-reports/*.xml
+            **/target/failsafe-reports/*.xml
+            test-results/**/*.xml
+            test-results/**/*.trx
+            test-results/**/*.json
+
+      # ----- Collect CCM logs on failure (no tar) -----
+      - name: Collect CCM startup logs
         if: failure()
         run: |
-          set -euxo pipefail
           mkdir -p ccm-logs
           shopt -s nullglob
           for f in "$HOME"/.ccm/*/*/logs/startup*; do
             dest="ccm-logs/${{ matrix.SERVER_VERSION }}-jdk${{ matrix.java }}-$(basename "$(dirname "$(dirname "$f")")")-$(basename "$(dirname "$f")")-$(basename "$f")"
             cp "$f" "$dest"
           done
-          tar -czf ccm-startup-logs-${{ matrix.SERVER_VERSION }}-jdk${{ matrix.java }}.tar.gz ccm-logs || echo "No logs to tar"
 
       - name: Upload CCM startup logs artifact
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: ccm-startup-logs-${{ matrix.SERVER_VERSION }}-jdk${{ matrix.java }}
-          path: |
-            ccm-startup-logs-${{ matrix.SERVER_VERSION }}-jdk${{ matrix.java }}.tar.gz
-            ccm-logs/**
+          path: ccm-logs/**
           if-no-files-found: ignore
-
-      - name: Publish Test Results
-        uses: EnricoMi/publish-unit-test-result-action@v2
-        if: (!cancelled())
-        with:
-          files: |
-            test-results/**/*.xml
-            test-results/**/*.trx
-            test-results/**/*.json
