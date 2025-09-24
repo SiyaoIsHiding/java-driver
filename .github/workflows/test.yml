@@ -1,12 +1,14 @@
-name: CI
+name: Run Tests
 
 on:
   push:
   pull_request:
-  workflow_dispatch:
+  workflow_dispatch:   # allow manual trigger from Actions page
 
 permissions:
   contents: read
+  checks: write
+  pull-requests: write
 
 jobs:
   build-and-test:
@@ -15,7 +17,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: ['8', '11', '17', '21']              # JDK used for TEST phase
+        java: ['8', '11', '17', '21']                  # JDK used for TEST phase
         SERVER_VERSION: ['3.11', '4.0', '4.1', '5.0']  # Cassandra minor versions
 
     steps:
@@ -118,6 +120,37 @@ jobs:
           echo "Resolved Cassandra ${SERVER_VERSION}.x -> ${PATCH_SERVER_VERSION}"
           echo "PATCH_SERVER_VERSION=$PATCH_SERVER_VERSION" >> "$GITHUB_ENV"
 
+      # ---- Start a background watcher to copy CCM startup logs as soon as they appear ----
+      - name: Start CCM log watcher
+        env:
+          SERVER_VERSION: ${{ matrix.SERVER_VERSION }}
+          TEST_JAVA_MAJOR_VERSION: ${{ matrix.java }}
+        run: |
+          set -u
+          mkdir -p ccm-logs
+          cat > watch_ccm_logs.sh <<'EOF'
+          #!/usr/bin/env bash
+          set -u
+          DEST="ccm-logs"
+          mkdir -p "$DEST"
+          # Use provided env if available; fall back to "unknown"
+          SV="${SERVER_VERSION:-unknown}"
+          J="${TEST_JAVA_MAJOR_VERSION:-unknown}"
+          while true; do
+            for f in "$HOME"/.ccm/*/*/logs/startup*; do
+              [ -e "$f" ] || continue
+              # Preserve cluster/node context in filename
+              dest="$DEST/${SV}-jdk${J}-$(basename "$(dirname "$(dirname "$f")")")-$(basename "$(dirname "$f")")-$(basename "$f")"
+              # Copy only once per file path
+              if [ ! -f "$dest" ]; then cp "$f" "$dest" || true; fi
+            done
+            sleep 2
+          done
+          EOF
+          chmod +x watch_ccm_logs.sh
+          ./watch_ccm_logs.sh &
+          echo $! > watcher.pid
+
       - name: Run tests
         env:
           TEST_JAVA_MAJOR_VERSION: ${{ matrix.java }}
@@ -135,6 +168,17 @@ jobs:
             -Dccm.version="${PATCH_SERVER_VERSION}" \
             -Dccm.dse=false \
             -Dmaven.javadoc.skip=true \
+            -Dsurefire.reportFormat=xml \
+            -Dsurefire.useFile=true
+
+      # Stop the background watcher (always)
+      - name: Stop CCM log watcher
+        if: always()
+        run: |
+          if [ -f watcher.pid ]; then
+            kill "$(cat watcher.pid)" 2>/dev/null || true
+            rm -f watcher.pid
+          fi
 
       - name: Publish Test Results
         uses: EnricoMi/publish-unit-test-result-action@v2
@@ -148,16 +192,6 @@ jobs:
             test-results/**/*.json
 
       # ----- Collect CCM logs on failure (no tar) -----
-      - name: Collect CCM startup logs
-        if: failure()
-        run: |
-          mkdir -p ccm-logs
-          shopt -s nullglob
-          for f in "$HOME"/.ccm/*/*/logs/startup*; do
-            dest="ccm-logs/${{ matrix.SERVER_VERSION }}-jdk${{ matrix.java }}-$(basename "$(dirname "$(dirname "$f")")")-$(basename "$(dirname "$f")")-$(basename "$f")"
-            cp "$f" "$dest"
-          done
-
       - name: Upload CCM startup logs artifact
         if: failure()
         uses: actions/upload-artifact@v4
