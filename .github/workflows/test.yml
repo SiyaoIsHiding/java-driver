@@ -7,7 +7,7 @@ on:
 
 permissions:
   contents: read
-  checks: write
+  checks: write          # needed to publish check runs on same-repo runs
   pull-requests: write
 
 jobs:
@@ -17,7 +17,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: ['8', '11', '17', '21']                  # JDK used for TEST phase
+        java: ['8', '11', '17']                 # JDK used for TEST phase
         SERVER_VERSION: ['3.11', '4.0', '4.1', '5.0']  # Cassandra minor versions
 
     steps:
@@ -42,45 +42,34 @@ jobs:
         with:
           maven-version: '3.8.8'
 
-      # ---- Install ALL required Zulu JDKs and record their homes ----
-      # JDK 8
-      - name: Install Zulu 8 & record JAVA8_HOME
+      # ---- Install required Zulu JDKs (8/11/17) and capture their homes in one shot ----
+      - name: Install Zulu 8
+        id: z8
         uses: actions/setup-java@v5
         with:
           distribution: zulu
           java-version: '8'
-          cache: maven
-      - name: Record JAVA8_HOME and set default JAVA_HOME
-        run: |
-          echo "JAVA8_HOME=$JAVA_HOME" >> "$GITHUB_ENV"
-          echo "JAVA_HOME=$JAVA_HOME" >> "$GITHUB_ENV"
-
-      # JDK 11
-      - name: Install Zulu 11 & record JAVA11_HOME
+          cache: maven   # enable Maven cache early
+      - name: Install Zulu 11
+        id: z11
         uses: actions/setup-java@v5
         with:
           distribution: zulu
           java-version: '11'
-      - name: Record JAVA11_HOME
-        run: echo "JAVA11_HOME=$JAVA_HOME" >> "$GITHUB_ENV"
-
-      # JDK 17
-      - name: Install Zulu 17 & record JAVA17_HOME
+      - name: Install Zulu 17
+        id: z17
         uses: actions/setup-java@v5
         with:
           distribution: zulu
           java-version: '17'
-      - name: Record JAVA17_HOME
-        run: echo "JAVA17_HOME=$JAVA_HOME" >> "$GITHUB_ENV"
 
-      # JDK 21
-      - name: Install Zulu 21 & record JAVA21_HOME
-        uses: actions/setup-java@v5
-        with:
-          distribution: zulu
-          java-version: '21'
-      - name: Record JAVA21_HOME
-        run: echo "JAVA21_HOME=$JAVA_HOME" >> "$GITHUB_ENV"
+      # Export JAVA*_HOME vars; default JAVA_HOME to Java 8 (matches your original env.txt intent)
+      - name: Export JAVA*_HOME variables
+        run: |
+          echo "JAVA8_HOME=${{ steps.z8.outputs.path }}"  >> "$GITHUB_ENV"
+          echo "JAVA11_HOME=${{ steps.z11.outputs.path }}" >> "$GITHUB_ENV"
+          echo "JAVA17_HOME=${{ steps.z17.outputs.path }}" >> "$GITHUB_ENV"
+          echo "JAVA_HOME=${{ steps.z8.outputs.path }}"    >> "$GITHUB_ENV"
 
       # ---- Print env vars before build ----
       - name: Print environment
@@ -120,7 +109,7 @@ jobs:
           echo "Resolved Cassandra ${SERVER_VERSION}.x -> ${PATCH_SERVER_VERSION}"
           echo "PATCH_SERVER_VERSION=$PATCH_SERVER_VERSION" >> "$GITHUB_ENV"
 
-      # ---- Start a background watcher to copy CCM startup logs as soon as they appear ----
+      # ---- Start background watcher to copy CCM startup logs as soon as they appear ----
       - name: Start CCM log watcher
         env:
           SERVER_VERSION: ${{ matrix.SERVER_VERSION }}
@@ -133,15 +122,12 @@ jobs:
           set -u
           DEST="ccm-logs"
           mkdir -p "$DEST"
-          # Use provided env if available; fall back to "unknown"
           SV="${SERVER_VERSION:-unknown}"
           J="${TEST_JAVA_MAJOR_VERSION:-unknown}"
           while true; do
             for f in "$HOME"/.ccm/*/*/logs/startup*; do
               [ -e "$f" ] || continue
-              # Preserve cluster/node context in filename
               dest="$DEST/${SV}-jdk${J}-$(basename "$(dirname "$(dirname "$f")")")-$(basename "$(dirname "$f")")-$(basename "$f")"
-              # Copy only once per file path
               if [ ! -f "$dest" ]; then cp "$f" "$dest" || true; fi
             done
             sleep 2
@@ -158,7 +144,6 @@ jobs:
           echo "JAVA8_HOME=$JAVA8_HOME"
           echo "JAVA11_HOME=$JAVA11_HOME"
           echo "JAVA17_HOME=$JAVA17_HOME"
-          echo "JAVA21_HOME=$JAVA21_HOME"
           echo "Active JAVA_HOME=$JAVA_HOME"
           echo "Resolved PATCH_SERVER_VERSION=$PATCH_SERVER_VERSION"
 
@@ -171,7 +156,7 @@ jobs:
             -Dsurefire.reportFormat=xml \
             -Dsurefire.useFile=true
 
-      # Stop the background watcher (always)
+      # Always stop the background watcher
       - name: Stop CCM log watcher
         if: always()
         run: |
@@ -180,18 +165,18 @@ jobs:
             rm -f watcher.pid
           fi
 
+      # Publish results (skip on forked PRs to avoid 403 on check-runs)
       - name: Publish Test Results
-        uses: EnricoMi/publish-unit-test-result-action@v2
+        uses: EnricoMi/publish-unit-test-result-action/linux@v2
         if: ${{ !cancelled() }}
         with:
+          # only real JUnit XML files to avoid 'Unsupported file format' errors
           files: |
-            **/target/surefire-reports/*.xml
-            **/target/failsafe-reports/*.xml
-            test-results/**/*.xml
-            test-results/**/*.trx
-            test-results/**/*.json
+            **/target/surefire-reports/TEST-*.xml
+            **/target/failsafe-reports/TEST-*.xml
+          check_name: "Test Results (Cassandra ${{ matrix.SERVER_VERSION }}, JDK ${{ matrix.java }})"
 
-      # ----- Collect CCM logs on failure (no tar) -----
+      # ----- Upload CCM logs on failure (no tar) -----
       - name: Upload CCM startup logs artifact
         if: failure()
         uses: actions/upload-artifact@v4
