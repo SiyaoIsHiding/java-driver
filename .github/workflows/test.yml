@@ -135,3 +135,34 @@ jobs:
             -Dccm.dse=false \
             -Dmaven.test.failure.ignore=true \
             -Dmaven.javadoc.skip=true
+      # ----- Collect CCM logs on failure -----
+      - name: Zip CCM startup logs
+        if: failure()
+        run: |
+          set -euxo pipefail
+          mkdir -p ccm-logs
+          shopt -s nullglob
+          for f in "$HOME"/.ccm/*/*/logs/startup*; do
+            dest="ccm-logs/${{ matrix.SERVER_VERSION }}-jdk${{ matrix.java }}-$(basename "$(dirname "$(dirname "$f")")")-$(basename "$(dirname "$f")")-$(basename "$f")"
+            cp "$f" "$dest"
+          done
+          tar -czf ccm-startup-logs-${{ matrix.SERVER_VERSION }}-jdk${{ matrix.java }}.tar.gz ccm-logs || echo "No logs to tar"
+
+      - name: Upload CCM startup logs artifact
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ccm-startup-logs-${{ matrix.SERVER_VERSION }}-jdk${{ matrix.java }}
+          path: |
+            ccm-startup-logs-${{ matrix.SERVER_VERSION }}-jdk${{ matrix.java }}.tar.gz
+            ccm-logs/**
+          if-no-files-found: ignore
+
+      - name: Publish Test Results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: (!cancelled())
+        with:
+          files: |
+            test-results/**/*.xml
+            test-results/**/*.trx
+            test-results/**/*.json
