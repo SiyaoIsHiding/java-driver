@@ -7,7 +7,7 @@ on:
 
 permissions:
   contents: read
-  checks: write          # needed to publish check runs on same-repo runs
+  checks: write
   pull-requests: write
 
 jobs:
@@ -17,7 +17,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: ['8', '11', '17']                 # JDK used for TEST phase
+        java: ['8', '11', '17']                     # JDK used for TEST phase
         SERVER_VERSION: ['3.11', '4.0', '4.1', '5.0']  # Cassandra minor versions
 
     steps:
@@ -42,7 +42,7 @@ jobs:
         with:
           maven-version: '3.8.8'
 
-      # ---- Install required Zulu JDKs (8/11/17) and capture their homes in one shot ----
+      # ---- Install required Zulu JDKs (8/11/17) and capture their homes in one step ----
       - name: Install Zulu 8
         id: z8
         uses: actions/setup-java@v5
@@ -63,7 +63,6 @@ jobs:
           distribution: zulu
           java-version: '17'
 
-      # Export JAVA*_HOME vars; default JAVA_HOME to Java 8 (matches your original env.txt intent)
       - name: Export JAVA*_HOME variables
         run: |
           echo "JAVA8_HOME=${{ steps.z8.outputs.path }}"  >> "$GITHUB_ENV"
@@ -109,26 +108,32 @@ jobs:
           echo "Resolved Cassandra ${SERVER_VERSION}.x -> ${PATCH_SERVER_VERSION}"
           echo "PATCH_SERVER_VERSION=$PATCH_SERVER_VERSION" >> "$GITHUB_ENV"
 
-      # ---- Start background watcher to copy CCM startup logs as soon as they appear ----
+      # ---- Start background watcher to COPY ALL node logs as soon as they appear ----
       - name: Start CCM log watcher
         env:
           SERVER_VERSION: ${{ matrix.SERVER_VERSION }}
           TEST_JAVA_MAJOR_VERSION: ${{ matrix.java }}
         run: |
-          set -u
           mkdir -p ccm-logs
           cat > watch_ccm_logs.sh <<'EOF'
           #!/usr/bin/env bash
-          set -u
           DEST="ccm-logs"
-          mkdir -p "$DEST"
           SV="${SERVER_VERSION:-unknown}"
           J="${TEST_JAVA_MAJOR_VERSION:-unknown}"
+          mkdir -p "$DEST"
+          # Poll every 2s and copy any new files from ~/.ccm/*/*/logs/
           while true; do
-            for f in "$HOME"/.ccm/*/*/logs/startup*; do
-              [ -e "$f" ] || continue
-              dest="$DEST/${SV}-jdk${J}-$(basename "$(dirname "$(dirname "$f")")")-$(basename "$(dirname "$f")")-$(basename "$f")"
-              if [ ! -f "$dest" ]; then cp "$f" "$dest" || true; fi
+            for f in "$HOME"/.ccm/*/*/logs/*; do
+              [ -f "$f" ] || continue
+              cluster="$(basename "$(dirname "$(dirname "$f")")")"
+              node="$(basename "$(dirname "$f")")"
+              base="$(basename "$f")"
+              outdir="$DEST/${SV}-jdk${J}/${cluster}/${node}"
+              mkdir -p "$outdir"
+              if [ ! -f "$outdir/$base" ]; then
+                cp "$f" "$outdir/$base" 2>/dev/null || true
+                echo "copied: $f -> $outdir/$base" >> "$DEST/watcher.log"
+              fi
             done
             sleep 2
           done
@@ -156,7 +161,7 @@ jobs:
             -Dsurefire.reportFormat=xml \
             -Dsurefire.useFile=true
 
-      # Always stop the background watcher
+      # Always stop the background watcher and show what we captured
       - name: Stop CCM log watcher
         if: always()
         run: |
@@ -164,16 +169,20 @@ jobs:
             kill "$(cat watcher.pid)" 2>/dev/null || true
             rm -f watcher.pid
           fi
+          echo "== Watcher log =="
+          [ -f ccm-logs/watcher.log ] && tail -n +1 ccm-logs/watcher.log || echo "no watcher.log"
+          echo "== Collected files =="
+          [ -d ccm-logs ] && find ccm-logs -type f -maxdepth 4 -print || echo "no ccm-logs dir"
 
       # Publish results (skip on forked PRs to avoid 403 on check-runs)
       - name: Publish Test Results
-        uses: EnricoMi/publish-unit-test-result-action/linux@v2
-        if: ${{ !cancelled() }}
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: ${{ !cancelled() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
         with:
-          # only real JUnit XML files to avoid 'Unsupported file format' errors
           files: |
             **/target/surefire-reports/TEST-*.xml
             **/target/failsafe-reports/TEST-*.xml
+          comment_mode: off
           check_name: "Test Results (Cassandra ${{ matrix.SERVER_VERSION }}, JDK ${{ matrix.java }})"
 
       # ----- Upload CCM logs on failure (no tar) -----
@@ -181,6 +190,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: ccm-startup-logs-${{ matrix.SERVER_VERSION }}-jdk${{ matrix.java }}
-          path: ccm-logs/**
-          if-no-files-found: ignore
+          name: ccm-node-logs-${{ matrix.SERVER_VERSION }}-jdk${{ matrix.java }}
+          path: |
+            ccm-logs/**
+          if-no-files-found: warn
