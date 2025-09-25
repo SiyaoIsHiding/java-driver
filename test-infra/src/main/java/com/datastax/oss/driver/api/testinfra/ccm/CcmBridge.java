@@ -309,7 +309,7 @@ public class CcmBridge implements AutoCloseable {
   }
 
   public void remove() {
-    // execute("remove");
+    execute("stop");
   }
 
   public void pause(int n) {
