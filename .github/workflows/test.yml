@@ -144,5 +144,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ccm-startup-logs-${{ matrix.SERVER_VERSION }}-jdk${{ matrix.java }}
-          path: ${{ env.HOME }}/.ccm/**/startup*
-          if-no-files-found: warn   # change to 'ignore' if you don't want warnings
+          path: ~/.ccm/**/startup*
