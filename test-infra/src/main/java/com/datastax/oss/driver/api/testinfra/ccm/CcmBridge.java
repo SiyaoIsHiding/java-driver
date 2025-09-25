@@ -309,7 +309,7 @@ public class CcmBridge implements AutoCloseable {
   }
 
   public void remove() {
-    execute("remove");
+    // execute("remove");
   }
 
   public void pause(int n) {
@@ -353,7 +353,7 @@ public class CcmBridge implements AutoCloseable {
             + String.join(" ", args)
             + " --config-dir="
             + configDirectory.toFile().getAbsolutePath();
-
+    System.out.println(command);
     execute(CommandLine.parse(command));
   }
 
@@ -425,7 +425,7 @@ public class CcmBridge implements AutoCloseable {
   @Override
   public void close() {
     if (created.compareAndSet(true, false)) {
-      remove();
+      // remove();
     }
   }
 
