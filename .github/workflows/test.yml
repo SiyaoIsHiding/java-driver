@@ -138,9 +138,13 @@ jobs:
           check_name: "Test Results (Cassandra ${{ matrix.SERVER_VERSION }}, JDK ${{ matrix.java }})"
 
       # ----- Upload ALL startup* logs from ~/.ccm on failure -----
+
+      # Upload ALL startup* logs from either ~/.ccm or /tmp/ccm* (on failure; switch to always() if you want them every run)
       - name: Upload CCM startup logs artifact
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: ccm-startup-logs-${{ matrix.SERVER_VERSION }}-jdk${{ matrix.java }}
-          path: /home/runner/.ccm/**/*.log
+          path: |
+            /tmp/ccm*/**/*.log
+          if-no-files-found: warn
