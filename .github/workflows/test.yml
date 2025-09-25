@@ -17,8 +17,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: ['8', '11', '17']                     # JDK used for TEST phase
-        SERVER_VERSION: ['3.11', '4.0', '4.1', '5.0']  # Cassandra minor versions
+        java: ['8', '11', '17']                       # JDK used for TEST phase
+        SERVER_VERSION: ['3.11', '4.0', '4.1', '5.0'] # Cassandra minor versions
 
     steps:
       - name: Checkout
@@ -108,40 +108,6 @@ jobs:
           echo "Resolved Cassandra ${SERVER_VERSION}.x -> ${PATCH_SERVER_VERSION}"
           echo "PATCH_SERVER_VERSION=$PATCH_SERVER_VERSION" >> "$GITHUB_ENV"
 
-      # ---- Start background watcher to copy ONLY startup-stderr* logs as they appear ----
-      - name: Start CCM log watcher
-        env:
-          SERVER_VERSION: ${{ matrix.SERVER_VERSION }}
-          TEST_JAVA_MAJOR_VERSION: ${{ matrix.java }}
-        run: |
-          mkdir -p ccm-logs
-          cat > watch_ccm_logs.sh <<'EOF'
-          #!/usr/bin/env bash
-          DEST="ccm-logs"
-          SV="${SERVER_VERSION:-unknown}"
-          J="${TEST_JAVA_MAJOR_VERSION:-unknown}"
-          mkdir -p "$DEST"
-          # Poll every 2s and copy any new startup-stderr* files from ~/.ccm/*/*/logs/
-          while true; do
-            for f in "$HOME"/.ccm/*/*/logs/startup-stderr*; do
-              [ -f "$f" ] || continue
-              cluster="$(basename "$(dirname "$(dirname "$f")")")"
-              node="$(basename "$(dirname "$f")")"
-              base="$(basename "$f")"
-              outdir="$DEST/${SV}-jdk${J}/${cluster}/${node}"
-              mkdir -p "$outdir"
-              if [ ! -f "$outdir/$base" ]; then
-                cp "$f" "$outdir/$base" 2>/dev/null || true
-                echo "copied: $f -> $outdir/$base" >> "$DEST/watcher.log"
-              fi
-            done
-            sleep 2
-          done
-          EOF
-          chmod +x watch_ccm_logs.sh
-          ./watch_ccm_logs.sh &
-          echo $! > watcher.pid
-
       - name: Run tests
         env:
           TEST_JAVA_MAJOR_VERSION: ${{ matrix.java }}
@@ -161,19 +127,6 @@ jobs:
             -Dsurefire.reportFormat=xml \
             -Dsurefire.useFile=true
 
-      # Always stop the background watcher and show what we captured
-      - name: Stop CCM log watcher
-        if: always()
-        run: |
-          if [ -f watcher.pid ]; then
-            kill "$(cat watcher.pid)" 2>/dev/null || true
-            rm -f watcher.pid
-          fi
-          echo "== Watcher log =="
-          [ -f ccm-logs/watcher.log ] && tail -n +1 ccm-logs/watcher.log || echo "no watcher.log"
-          echo "== Collected startup-stderr* files =="
-          [ -d ccm-logs ] && find ccm-logs -type f -name 'startup-stderr*' -maxdepth 6 -print || echo "no ccm-logs dir"
-
       # Publish results (skip on forked PRs to avoid 403 on check-runs)
       - name: Publish Test Results
         uses: EnricoMi/publish-unit-test-result-action@v2
@@ -185,13 +138,11 @@ jobs:
           comment_mode: off
           check_name: "Test Results (Cassandra ${{ matrix.SERVER_VERSION }}, JDK ${{ matrix.java }})"
 
-      # ----- Upload ONLY startup-stderr* logs on failure -----
-      - name: Upload CCM startup-stderr logs artifact
+      # ----- Upload ALL startup* logs from ~/.ccm on failure -----
+      - name: Upload CCM startup logs artifact
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: ccm-startup-stderr-logs-${{ matrix.SERVER_VERSION }}-jdk${{ matrix.java }}
-          path: |
-            ccm-logs/**/startup-stderr*
-            ccm-logs/watcher.log
-          if-no-files-found: warn
+          name: ccm-startup-logs-${{ matrix.SERVER_VERSION }}-jdk${{ matrix.java }}
+          path: ${{ env.HOME }}/.ccm/**/startup*
+          if-no-files-found: warn   # change to 'ignore' if you don't want warnings
