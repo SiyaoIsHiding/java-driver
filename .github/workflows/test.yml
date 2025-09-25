@@ -138,8 +138,20 @@ jobs:
           comment_mode: off
           check_name: "Test Results (Cassandra ${{ matrix.SERVER_VERSION }}, JDK ${{ matrix.java }})"
 
-      - name: list files
-        run: cd /home/runner/.ccm && find . -maxdepth 4 -print
+      - name: List CCM startup logs
+        if: always()   # or: failure()
+        shell: bash
+        run: |
+          set -e
+          if [ -d "$HOME/.ccm" ]; then
+            cd "$HOME/.ccm"
+            echo "Listing up to 4 levels under $PWD:"
+            # show only startup* files; drop -name if you want everything
+            find . -maxdepth 4 -print
+          else
+            echo "~/.ccm does not exist"
+          fi
+
         
       # ----- Upload ALL startup* logs from ~/.ccm on failure -----
       - name: Upload CCM startup logs artifact
