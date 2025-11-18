@@ -1,0 +1,36 @@
+site_name: Java Driver for Apache Cassandra
+site_description: Java Driver for Apache Cassandra® Documentation
+site_url: https://apache.github.io/cassandra-java-driver
+repo_url: https://github.com/apache/cassandra-java-driver
+repo_name: apache/cassandra-java-driver
+
+docs_dir: docs
+site_dir: out
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: blue
+      accent: blue
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - search.highlight
+    - search.share
+
+markdown_extensions:
+  - admonition
+  - codehilite
+  - pymdownx.superfences
+  - pymdownx.tabbed
+  - toc:
+      permalink: true
+
+nav:
+  - Versions: README.md
+
+plugins:
+  - search
+  - awesome-pages
