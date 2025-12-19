@@ -107,11 +107,6 @@ jobs:
           )
           echo "Resolved Cassandra ${SERVER_VERSION}.x -> ${PATCH_SERVER_VERSION}"
           echo "PATCH_SERVER_VERSION=$PATCH_SERVER_VERSION" >> "$GITHUB_ENV"
-
-      - name: List process on port
-        run: |
-          lsof -n -i :7100
-          kill $(lsof -t -i:7100)
           
       - name: Run tests
         env:
