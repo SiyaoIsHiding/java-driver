@@ -309,7 +309,7 @@ public class CcmBridge implements AutoCloseable {
   }
 
   public void remove() {
-    // execute("remove");
+    execute("stop");
   }
 
   public void pause(int n) {
@@ -425,7 +425,7 @@ public class CcmBridge implements AutoCloseable {
   @Override
   public void close() {
     if (created.compareAndSet(true, false)) {
-      // remove();
+      remove();
     }
   }
 

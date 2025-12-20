@@ -3,7 +3,7 @@ name: Run Tests
 on:
   push:
   pull_request:
-  workflow_dispatch:   # allow manual trigger from Actions page
+  workflow_dispatch:   # allow manual trigger from Actions  page
 
 permissions:
   contents: read
@@ -25,10 +25,10 @@ jobs:
         uses: actions/checkout@v4
 
       # ---- Python for ccm ----
-      - name: Set up Python 3.9
+      - name: Set up Python 3.9.16
         uses: actions/setup-python@v5
         with:
-          python-version: '3.9'
+          python-version: '3.9.16'
 
       - name: Install ccm
         run: |
@@ -108,57 +108,43 @@ jobs:
           echo "Resolved Cassandra ${SERVER_VERSION}.x -> ${PATCH_SERVER_VERSION}"
           echo "PATCH_SERVER_VERSION=$PATCH_SERVER_VERSION" >> "$GITHUB_ENV"
           
-      - name: Run ccm
-        run: ccm create c5 -v 5.0.5 -n 3
-      # - name: Run tests
-      #   env:
-      #     TEST_JAVA_MAJOR_VERSION: ${{ matrix.java }}
-      #   run: |
-      #     echo "JAVA8_HOME=$JAVA8_HOME"
-      #     echo "JAVA11_HOME=$JAVA11_HOME"
-      #     echo "JAVA17_HOME=$JAVA17_HOME"
-      #     echo "Active JAVA_HOME=$JAVA_HOME"
-      #     echo "Resolved PATCH_SERVER_VERSION=$PATCH_SERVER_VERSION"
+      - name: Run tests
+        env:
+          TEST_JAVA_MAJOR_VERSION: ${{ matrix.java }}
+        run: |
+          echo "JAVA8_HOME=$JAVA8_HOME"
+          echo "JAVA11_HOME=$JAVA11_HOME"
+          echo "JAVA17_HOME=$JAVA17_HOME"
+          echo "Active JAVA_HOME=$JAVA_HOME"
+          echo "Resolved PATCH_SERVER_VERSION=$PATCH_SERVER_VERSION"
 
-      #     mvn -B -V verify -T 1 \
-      #       -Ptest-jdk-${TEST_JAVA_MAJOR_VERSION} \
-      #       -DtestJavaHome="$JAVA_HOME" \
-      #       -Dccm.version="${PATCH_SERVER_VERSION}" \
-      #       -Dccm.dse=false \
-      #       -Dmaven.javadoc.skip=true \
-      #       -Dsurefire.reportFormat=xml \
-      #       -Dsurefire.useFile=true
+          mvn -B -V verify -T 1 \
+            -Ptest-jdk-${TEST_JAVA_MAJOR_VERSION} \
+            -DtestJavaHome="$JAVA_HOME" \
+            -Dccm.version="${PATCH_SERVER_VERSION}" \
+            -Dccm.dse=false \
+            -Dmaven.javadoc.skip=true \
+            -Dsurefire.reportFormat=xml \
+            -Dsurefire.useFile=true
 
-      # # Publish results (skip on forked PRs to avoid 403 on check-runs)
-      # - name: Publish Test Results
-      #   uses: EnricoMi/publish-unit-test-result-action@v2
-      #   if: ${{ !cancelled() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
-      #   with:
-      #     files: |
-      #       **/target/surefire-reports/TEST-*.xml
-      #       **/target/failsafe-reports/TEST-*.xml
-      #     comment_mode: off
-      #     check_name: "Test Results (Cassandra ${{ matrix.SERVER_VERSION }}, JDK ${{ matrix.java }})"
+      # Publish results (skip on forked PRs to avoid 403 on check-runs)
+      - name: Publish Test Results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: ${{ !cancelled() }}
+        with:
+          files: |
+            **/target/surefire-reports/TEST-*.xml
+            **/target/failsafe-reports/TEST-*.xml
+          check_name: "Test Results (Cassandra ${{ matrix.SERVER_VERSION }}, JDK ${{ matrix.java }})"
 
-      # - name: List CCM startup logs
-      #   if: always()   # or: failure()
-      #   shell: bash
-      #   run: |
-      #     set -e
-      #     if [ -d "$HOME/.ccm" ]; then
-      #       cd "$HOME/.ccm"
-      #       echo "Listing up to 4 levels under $PWD:"
-      #       # show only startup* files; drop -name if you want everything
-      #       find . -maxdepth 4 -print
-      #     else
-      #       echo "~/.ccm does not exist"
-      #     fi
+      # ----- Upload ALL startup* logs from ~/.ccm on failure -----
 
-        
-      # # ----- Upload ALL startup* logs from ~/.ccm on failure -----
-      # - name: Upload CCM startup logs artifact
-      #   if: failure()
-      #   uses: actions/upload-artifact@v4
-      #   with:
-      #     name: ccm-startup-logs-${{ matrix.SERVER_VERSION }}-jdk${{ matrix.java }}
-      #     path: /home/runner/.ccm/**/*.log
+      # Upload ALL startup* logs from either ~/.ccm or /tmp/ccm* (on failure; switch to always() if you want them every run)
+      - name: Upload CCM startup logs artifact
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ccm-startup-logs-${{ matrix.SERVER_VERSION }}-jdk${{ matrix.java }}
+          path: |
+            /tmp/ccm*/**/*.log
+          if-no-files-found: warn
