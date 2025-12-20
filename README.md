@@ -1,7 +1,5 @@
 # Java Driver for Apache Cassandra®
 
-:warning: The java-driver has recently been donated by Datastax to The Apache Software Foundation and the Apache Cassandra project.  Bear with us as we move assets and coordinates.
-
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Maven Central](https://maven-badges.herokuapp.com/maven-central/org.apache.cassandra/java-driver-core/badge.svg)](https://maven-badges.herokuapp.com/maven-central/org.apache.cassandra/java-driver-core)
 
@@ -66,10 +64,6 @@ Java Driver 4 is **not binary compatible** with previous versions. However, most
 remain unchanged, and the new API will look very familiar to 2.x and 3.x users.
 
 See the [upgrade guide](upgrade_guide/) for details.
-
-## Error Handling
-
-See the [Cassandra error handling done right blog](https://www.datastax.com/blog/cassandra-error-handling-done-right) for error handling with the Java Driver for Apache Cassandra&trade;.
 
 ## Useful links
 
