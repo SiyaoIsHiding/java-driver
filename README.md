@@ -1,3 +1,4 @@
+test CI
 # Java Driver for Apache Cassandra®
 
 :warning: The java-driver has recently been donated by Datastax to The Apache Software Foundation and the Apache Cassandra project.  Bear with us as we move assets and coordinates.
