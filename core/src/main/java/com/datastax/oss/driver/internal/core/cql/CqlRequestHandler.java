@@ -46,6 +46,7 @@ import com.datastax.oss.driver.api.core.servererrors.WriteTimeoutException;
 import com.datastax.oss.driver.api.core.session.Request;
 import com.datastax.oss.driver.api.core.session.throttling.RequestThrottler;
 import com.datastax.oss.driver.api.core.session.throttling.Throttled;
+import com.datastax.oss.driver.api.core.tracker.RequestIdGenerator;
 import com.datastax.oss.driver.api.core.tracker.RequestTracker;
 import com.datastax.oss.driver.internal.core.adminrequest.ThrottledAdminRequestHandler;
 import com.datastax.oss.driver.internal.core.adminrequest.UnexpectedResponseException;
@@ -61,6 +62,7 @@ import com.datastax.oss.driver.internal.core.tracker.NoopRequestTracker;
 import com.datastax.oss.driver.internal.core.tracker.RequestLogger;
 import com.datastax.oss.driver.internal.core.util.Loggers;
 import com.datastax.oss.driver.internal.core.util.collection.SimpleQueryPlan;
+import com.datastax.oss.driver.shaded.guava.common.base.Joiner;
 import com.datastax.oss.protocol.internal.Frame;
 import com.datastax.oss.protocol.internal.Message;
 import com.datastax.oss.protocol.internal.ProtocolConstants;
@@ -83,6 +85,7 @@ import java.time.Duration;
 import java.util.AbstractMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
@@ -102,7 +105,7 @@ public class CqlRequestHandler implements Throttled {
 
   private final long startTimeNanos;
   private long endTimeNanos = NANOTIME_NOT_MEASURED_YET;
-  private final String logPrefix;
+  private final String handlerLogPrefix;
   private final Statement<?> initialStatement;
   private final DefaultSession session;
   private final CqlIdentifier keyspace;
@@ -127,6 +130,7 @@ public class CqlRequestHandler implements Throttled {
   private final List<NodeResponseCallback> inFlightCallbacks;
   private final RequestThrottler throttler;
   private final RequestTracker requestTracker;
+  private final Optional<RequestIdGenerator> requestIdGenerator;
   private final SessionMetricUpdater sessionMetricUpdater;
   private final DriverExecutionProfile executionProfile;
 
@@ -134,15 +138,25 @@ public class CqlRequestHandler implements Throttled {
   // We don't use a map because nodes can appear multiple times.
   private volatile List<Map.Entry<Node, Throwable>> errors;
 
+  private final Joiner logPrefixJoiner = Joiner.on('|');
+  private final String sessionName;
+  private final String sessionRequestId;
+
   protected CqlRequestHandler(
       Statement<?> statement,
       DefaultSession session,
       InternalDriverContext context,
-      String sessionLogPrefix) {
+      String sessionName) {
 
     this.startTimeNanos = System.nanoTime();
-    this.logPrefix = sessionLogPrefix + "|" + this.hashCode();
-    LOG.trace("[{}] Creating new handler for request {}", logPrefix, statement);
+    this.requestIdGenerator = context.getRequestIdGenerator();
+    this.sessionName = sessionName;
+    this.sessionRequestId =
+        this.requestIdGenerator
+            .map(RequestIdGenerator::getSessionRequestId)
+            .orElse(Integer.toString(this.hashCode()));
+    this.handlerLogPrefix = logPrefixJoiner.join(sessionName, sessionRequestId);
+    LOG.trace("[{}] Creating new handler for request {}", handlerLogPrefix, statement);
 
     this.initialStatement = statement;
     this.session = session;
@@ -157,7 +171,7 @@ public class CqlRequestHandler implements Throttled {
               context.getRequestThrottler().signalCancel(this);
             }
           } catch (Throwable t2) {
-            Loggers.warnWithException(LOG, "[{}] Uncaught exception", logPrefix, t2);
+            Loggers.warnWithException(LOG, "[{}] Uncaught exception", handlerLogPrefix, t2);
           }
           return null;
         });
@@ -254,9 +268,9 @@ public class CqlRequestHandler implements Throttled {
     }
     Node node = retriedNode;
     DriverChannel channel = null;
-    if (node == null || (channel = session.getChannel(node, logPrefix)) == null) {
+    if (node == null || (channel = session.getChannel(node, handlerLogPrefix)) == null) {
       while (!result.isDone() && (node = queryPlan.poll()) != null) {
-        channel = session.getChannel(node, logPrefix);
+        channel = session.getChannel(node, handlerLogPrefix);
         if (channel != null) {
           break;
         } else {
@@ -275,6 +289,16 @@ public class CqlRequestHandler implements Throttled {
         setFinalError(executionInfo);
       }
     } else {
+      Statement finalStatement = statement;
+      String nodeRequestId =
+          this.requestIdGenerator
+              .map((g) -> g.getNodeRequestId(finalStatement, sessionRequestId))
+              .orElse(Integer.toString(this.hashCode()));
+      statement =
+          this.requestIdGenerator
+              .map((g) -> g.getDecoratedStatement(finalStatement, nodeRequestId))
+              .orElse(finalStatement);
+
       NodeResponseCallback nodeResponseCallback =
           new NodeResponseCallback(
               statement,
@@ -284,7 +308,7 @@ public class CqlRequestHandler implements Throttled {
               currentExecutionIndex,
               retryCount,
               scheduleNextExecution,
-              logPrefix);
+              logPrefixJoiner.join(this.sessionName, nodeRequestId, currentExecutionIndex));
       Message message = Conversions.toMessage(statement, executionProfile, context);
       trackNodeStart(statement, node, nodeResponseCallback.logPrefix);
       channel
@@ -337,7 +361,6 @@ public class CqlRequestHandler implements Throttled {
       if (result.complete(resultSet)) {
         cancelScheduledTasks();
         throttler.signalSuccess(this);
-
         long endTimeNanos = trackNodeEnd(callback, executionInfo);
         trackEnd(executionInfo);
         if (sessionMetricUpdater.isEnabled(
@@ -461,7 +484,7 @@ public class CqlRequestHandler implements Throttled {
       this.execution = execution;
       this.retryCount = retryCount;
       this.scheduleNextExecution = scheduleNextExecution;
-      this.logPrefix = logPrefix + "|" + execution;
+      this.logPrefix = logPrefix;
     }
 
     // this gets invoked once the write request completes.
@@ -544,7 +567,7 @@ public class CqlRequestHandler implements Throttled {
                   if (!result.isDone()) {
                     LOG.trace(
                         "[{}] Starting speculative execution {}",
-                        CqlRequestHandler.this.logPrefix,
+                        CqlRequestHandler.this.handlerLogPrefix,
                         index);
                     activeExecutionsCount.incrementAndGet();
                     startedSpeculativeExecutionsCount.incrementAndGet();
@@ -970,7 +993,7 @@ public class CqlRequestHandler implements Throttled {
 
   /** Notify request tracker that processing of initial statement starts. */
   private void trackStart() {
-    trackStart(initialStatement, logPrefix);
+    trackStart(initialStatement, handlerLogPrefix);
   }
 
   /** Notify request tracker that processing of given statement starts. */
@@ -1005,7 +1028,7 @@ public class CqlRequestHandler implements Throttled {
    * with error).
    */
   private void trackEnd(ExecutionInfo executionInfo) {
-    endTimeNanos = trackEndInternal(executionInfo, startTimeNanos, endTimeNanos, logPrefix);
+    endTimeNanos = trackEndInternal(executionInfo, startTimeNanos, endTimeNanos, handlerLogPrefix);
   }
 
   /**

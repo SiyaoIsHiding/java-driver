@@ -21,7 +21,7 @@ under the License.
 
 Start your SELECT with the `selectFrom` method in [QueryBuilder]. There are several variants
 depending on whether your table name is qualified, and whether you use
-[identifiers](../../case_sensitivity/) or raw strings:
+[identifiers](../../case_sensitivity/README.md) or raw strings:
 
 ```java
 import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.*;
@@ -321,7 +321,7 @@ selectFrom("foo").quotient(literal(1), Selector.column("a"));
 // SELECT 1/a FROM foo
 ```
 
-See the [terms](../term/#literals) section for more details on literals.
+See the [terms](../term/README.md#literals) section for more details on literals.
 
 #### Raw snippets
 
@@ -358,7 +358,7 @@ Like selectors, they also have fluent shortcuts to build and add in a single cal
 
 
 Relations are a common feature used by many types of statements, so they have a
-[dedicated page](../relation) in this manual.
+[dedicated page](../relation/README.md) in this manual.
 
 ### Other clauses
 
@@ -385,6 +385,29 @@ selectFrom("sensor_data")
     .whereColumn("id").isEqualTo(bindMarker())
     .orderBy("date", ClusteringOrder.DESC);
 // SELECT reading FROM sensor_data WHERE id=? ORDER BY date DESC
+```
+
+Vector Search:
+
+```java
+
+import com.datastax.oss.driver.api.core.data.CqlVector;
+
+selectFrom("foo")
+    .all()
+    .where(Relation.column("k").isEqualTo(literal(1)))
+    .orderByAnnOf("c1", CqlVector.newInstance(0.1, 0.2, 0.3));
+// SELECT * FROM foo WHERE k=1 ORDER BY c1 ANN OF [0.1, 0.2, 0.3]
+
+selectFrom("cycling", "comments_vs")
+    .column("comment")
+    .function(
+        "similarity_cosine",
+        Selector.column("comment_vector"),
+        literal(CqlVector.newInstance(0.2, 0.15, 0.3, 0.2, 0.05)))
+    .orderByAnnOf("comment_vector", CqlVector.newInstance(0.1, 0.15, 0.3, 0.12, 0.05))
+    .limit(1);
+// SELECT comment,similarity_cosine(comment_vector,[0.2, 0.15, 0.3, 0.2, 0.05]) FROM cycling.comments_vs ORDER BY comment_vector ANN OF [0.1, 0.15, 0.3, 0.12, 0.05] LIMIT 1
 ```
 
 Limits:

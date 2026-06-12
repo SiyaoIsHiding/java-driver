@@ -23,6 +23,7 @@ import static com.datastax.oss.driver.api.querybuilder.Assertions.assertThat;
 import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.literal;
 import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.selectFrom;
 
+import com.datastax.oss.driver.api.core.data.CqlVector;
 import com.datastax.oss.driver.api.querybuilder.relation.Relation;
 import com.datastax.oss.driver.shaded.guava.common.collect.ImmutableMap;
 import org.junit.Test;
@@ -73,5 +74,37 @@ public class SelectOrderingTest {
                 .orderBy("c3", ASC)
                 .orderBy(ImmutableMap.of("c1", DESC, "c2", ASC)))
         .hasCql("SELECT * FROM foo WHERE k=1 ORDER BY c3 ASC,c1 DESC,c2 ASC");
+  }
+
+  @Test
+  public void should_generate_ann_clause() {
+    assertThat(
+            selectFrom("foo")
+                .all()
+                .where(Relation.column("k").isEqualTo(literal(1)))
+                .orderByAnnOf("c1", CqlVector.newInstance(0.1, 0.2, 0.3)))
+        .hasCql("SELECT * FROM foo WHERE k=1 ORDER BY c1 ANN OF [0.1, 0.2, 0.3]");
+  }
+
+  @Test
+  public void should_replace_columns_ordering_with_ann() {
+    assertThat(
+            selectFrom("foo")
+                .all()
+                .where(Relation.column("k").isEqualTo(literal(1)))
+                .orderBy("c1", ASC)
+                .orderByAnnOf("c2", CqlVector.newInstance(0.1, 0.2, 0.3)))
+        .hasCql("SELECT * FROM foo WHERE k=1 ORDER BY c2 ANN OF [0.1, 0.2, 0.3]");
+  }
+
+  @Test
+  public void should_replace_ann_ordering_with_columns() {
+    assertThat(
+            selectFrom("foo")
+                .all()
+                .where(Relation.column("k").isEqualTo(literal(1)))
+                .orderByAnnOf("c1", CqlVector.newInstance(0.1, 0.2, 0.3))
+                .orderBy("c2", ASC))
+        .hasCql("SELECT * FROM foo WHERE k=1 ORDER BY c2 ASC");
   }
 }

@@ -92,45 +92,56 @@ public class MultiplexingRequestTracker implements RequestTracker {
       @NonNull Request request,
       @NonNull DriverExecutionProfile executionProfile,
       @NonNull Node node,
-      @NonNull String requestLogPrefix) {
+      @NonNull String sessionRequestLogPrefix) {
     invokeTrackers(
         tracker ->
-            tracker.onRequestCreatedForNode(request, executionProfile, node, requestLogPrefix),
-        requestLogPrefix,
+            tracker.onRequestCreatedForNode(
+                request, executionProfile, node, sessionRequestLogPrefix),
+        sessionRequestLogPrefix,
         "onRequestNodeStart");
   }
 
   @Override
   public void onSuccess(
-      long latencyNanos, @NonNull ExecutionInfo executionInfo, @NonNull String logPrefix) {
+      long latencyNanos,
+      @NonNull ExecutionInfo executionInfo,
+      @NonNull String sessionRequestLogPrefix) {
     invokeTrackers(
-        tracker -> tracker.onSuccess(latencyNanos, executionInfo, logPrefix),
-        logPrefix,
+        tracker -> tracker.onSuccess(latencyNanos, executionInfo, sessionRequestLogPrefix),
+        sessionRequestLogPrefix,
         "onSuccess");
   }
 
   @Override
   public void onError(
-      long latencyNanos, @NonNull ExecutionInfo executionInfo, @NonNull String logPrefix) {
+      long latencyNanos,
+      @NonNull ExecutionInfo executionInfo,
+      @NonNull String sessionRequestLogPrefix) {
     invokeTrackers(
-        tracker -> tracker.onError(latencyNanos, executionInfo, logPrefix), logPrefix, "onError");
+        tracker -> tracker.onError(latencyNanos, executionInfo, sessionRequestLogPrefix),
+        sessionRequestLogPrefix,
+        "onError");
   }
 
   @Override
   public void onNodeSuccess(
-      long latencyNanos, @NonNull ExecutionInfo executionInfo, @NonNull String logPrefix) {
+      long latencyNanos,
+      @NonNull ExecutionInfo executionInfo,
+      @NonNull String nodeRequestLogPrefix) {
     invokeTrackers(
-        tracker -> tracker.onNodeSuccess(latencyNanos, executionInfo, logPrefix),
-        logPrefix,
+        tracker -> tracker.onNodeSuccess(latencyNanos, executionInfo, nodeRequestLogPrefix),
+        nodeRequestLogPrefix,
         "onNodeSuccess");
   }
 
   @Override
   public void onNodeError(
-      long latencyNanos, @NonNull ExecutionInfo executionInfo, @NonNull String logPrefix) {
+      long latencyNanos,
+      @NonNull ExecutionInfo executionInfo,
+      @NonNull String nodeRequestLogPrefix) {
     invokeTrackers(
-        tracker -> tracker.onNodeError(latencyNanos, executionInfo, logPrefix),
-        logPrefix,
+        tracker -> tracker.onNodeError(latencyNanos, executionInfo, nodeRequestLogPrefix),
+        nodeRequestLogPrefix,
         "onNodeError");
   }
 

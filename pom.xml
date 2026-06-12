@@ -27,7 +27,7 @@
   </parent>
   <groupId>org.apache.cassandra</groupId>
   <artifactId>java-driver-parent</artifactId>
-  <version>4.18.2-SNAPSHOT</version>
+  <version>4.19.4-SNAPSHOT</version>
   <packaging>pom</packaging>
   <name>Apache Cassandra Java Driver</name>
   <url>https://github.com/datastax/java-driver</url>
@@ -57,8 +57,8 @@
     <!-- when changing version also update version in LICENSE_binary  -->
     <hdrhistogram.version>2.1.12</hdrhistogram.version>
     <metrics.version>4.1.18</metrics.version>
-    <netty.version>4.1.94.Final</netty.version>
-    <esri.version>1.2.1</esri.version>
+    <netty.version>4.1.130.Final</netty.version>
+    <esri.version>2.2.4</esri.version>
     <!--
     When upgrading TinkerPop please upgrade the version matrix in
     manual/core/integration/README.md
@@ -68,17 +68,16 @@
     <slf4j.version>1.7.26</slf4j.version>
     <!-- when changing version also update version in LICENSE_binary  -->
     <reactive-streams.version>1.0.3</reactive-streams.version>
-    <json.version>20230227</json.version>
-    <jackson.version>2.13.4</jackson.version>
-    <jackson-databind.version>2.13.4.2</jackson-databind.version>
+    <jackson.version>2.20.1</jackson.version>
+    <jackson-databind.version>${jackson.version}</jackson-databind.version>
     <!-- optional dependencies -->
     <snappy.version>1.1.10.1</snappy.version>
-    <lz4.version>1.7.1</lz4.version>
+    <lz4.version>1.10.2</lz4.version>
     <!-- test dependencies -->
     <assertj.version>3.19.0</assertj.version>
     <commons-exec.version>1.3</commons-exec.version>
     <junit.version>4.13.2</junit.version>
-    <logback.version>1.2.3</logback.version>
+    <logback.version>1.2.13</logback.version>
     <osgi.version>6.0.0</osgi.version>
     <felix.version>7.0.1</felix.version>
     <pax-exam.version>4.13.4</pax-exam.version>
@@ -114,7 +113,7 @@
         <!-- Version of Guava used in shaded module and for integration tests. -->
         <groupId>com.google.guava</groupId>
         <artifactId>guava</artifactId>
-        <version>25.1-jre</version>
+        <version>33.3.1-jre</version>
       </dependency>
       <dependency>
         <groupId>com.typesafe</groupId>
@@ -137,7 +136,7 @@
         <version>${snappy.version}</version>
       </dependency>
       <dependency>
-        <groupId>org.lz4</groupId>
+        <groupId>at.yawk.lz4</groupId>
         <artifactId>lz4-java</artifactId>
         <version>${lz4.version}</version>
       </dependency>
@@ -161,11 +160,6 @@
         <groupId>com.esri.geometry</groupId>
         <artifactId>esri-geometry-api</artifactId>
         <version>${esri.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>org.json</groupId>
-        <artifactId>json</artifactId>
-        <version>${json.version}</version>
       </dependency>
       <dependency>
         <groupId>org.apache.tinkerpop</groupId>
@@ -561,28 +555,23 @@
         <plugin>
           <groupId>org.revapi</groupId>
           <artifactId>revapi-maven-plugin</artifactId>
-          <version>0.10.5</version>
+          <version>0.15.1</version>
           <configuration>
             <outputNonIdentifyingDifferenceInfo>false</outputNonIdentifyingDifferenceInfo>
             <versionFormat>\d+\.\d+\.\d+</versionFormat>
-            <analysisConfiguration>
-              <revapi.ignore>
-                <item>
-                  <!-- We don't consider this a problem -->
-                  <code>java.class.externalClassExposedInAPI</code>
-                </item>
-              </revapi.ignore>
-            </analysisConfiguration>
             <oldArtifacts>
               <!-- The previous release used DataStax groupId, remove this after the next release -->
-              <artifact>com.datastax.oss:${project.artifactId}:RELEASE</artifact>
+              <artifact>${project.groupId}:${project.artifactId}:RELEASE</artifact>
             </oldArtifacts>
+            <analysisConfigurationFiles>
+              <file>revapi.json</file>
+            </analysisConfigurationFiles>
           </configuration>
           <dependencies>
             <dependency>
               <groupId>org.revapi</groupId>
               <artifactId>revapi-java</artifactId>
-              <version>0.22.1</version>
+              <version>0.28.4</version>
             </dependency>
           </dependencies>
         </plugin>
@@ -596,9 +585,33 @@
           <artifactId>flatten-maven-plugin</artifactId>
           <version>1.2.1</version>
         </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-enforcer-plugin</artifactId>
+          <version>3.5.0</version>
+        </plugin>
       </plugins>
     </pluginManagement>
     <plugins>
+      <plugin>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>enforce-maven</id>
+            <goals>
+              <goal>enforce</goal>
+            </goals>
+            <configuration>
+              <rules>
+                <requireMavenVersion>
+                  <!-- revapi 0.15.1 requires Maven version 3.8.1 -->
+                  <version>[3.8.1,)</version>
+                </requireMavenVersion>
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
       <plugin>
         <artifactId>maven-compiler-plugin</artifactId>
         <configuration>
@@ -785,6 +798,13 @@ limitations under the License.]]></inlineHeader>
           <quiet>true</quiet>
           <doclint>all,-missing</doclint>
           <excludePackageNames>com.datastax.*.driver.internal*</excludePackageNames>
+          <additionalDependencies>
+            <additionalDependency>
+              <groupId>com.google.errorprone</groupId>
+              <artifactId>error_prone_annotations</artifactId>
+              <version>2.3.4</version>
+            </additionalDependency>
+          </additionalDependencies>
           <tags>
             <tag>
               <name>apiNote</name>
@@ -863,6 +883,31 @@ limitations under the License.]]></inlineHeader>
               <useStandardDocletOptions>false</useStandardDocletOptions>
             </configuration>
           </execution>
+          <execution>
+            <!-- Generate aggregated Javadoc for specified modules -->
+            <id>aggregate-javadoc</id>
+            <goals>
+              <goal>aggregate</goal>
+            </goals>
+            <phase>site</phase>
+            <configuration>
+              <includeDependencySources>false</includeDependencySources>
+              <dependencySourceIncludes>
+                <dependencySourceInclude>org.apache.cassandra:java-driver-core</dependencySourceInclude>
+                <dependencySourceInclude>org.apache.cassandra:java-driver-query-builder</dependencySourceInclude>
+                <dependencySourceInclude>org.apache.cassandra:java-driver-mapper-runtime</dependencySourceInclude>
+              </dependencySourceIncludes>
+              <reactorProjects>
+                <reactorProject>core</reactorProject>
+                <reactorProject>query-builder</reactorProject>
+                <reactorProject>mapper-runtime</reactorProject>
+              </reactorProjects>
+              <doctitle>Apache Cassandra Java Driver ${project.version} API</doctitle>
+              <bottom><![CDATA[
+                Copyright &#169; {inceptionYear}&#x2013;{currentYear} <a href="https://www.apache.org/">The Apache Software Foundation</a>. All rights reserved.
+                ]]></bottom>
+            </configuration>
+          </execution>
         </executions>
       </plugin>
       <plugin>
@@ -901,12 +946,6 @@ limitations under the License.]]></inlineHeader>
             <goals>
               <goal>check</goal>
             </goals>
-            <configuration>
-              <analysisConfigurationFiles>
-                <!-- Present at the root of each module that doesn't skip this goal -->
-                <analysisConfigurationFile>revapi.json</analysisConfigurationFile>
-              </analysisConfigurationFiles>
-            </configuration>
           </execution>
         </executions>
       </plugin>
@@ -1014,6 +1053,19 @@ limitations under the License.]]></inlineHeader>
         <blockhound.argline>-XX:+AllowRedefinitionToAddDeleteMethods</blockhound.argline>
         <!-- allow deep reflection for mockito when using JDK 17+, see https://stackoverflow.com/questions/70993863/mockito-can-not-mock-random-in-java-17 -->
         <mockitoopens.argline>--add-opens java.base/jdk.internal.util.random=ALL-UNNAMED</mockitoopens.argline>
+      </properties>
+    </profile>
+    <profile>
+      <!-- workarounds for running tests with JDK21 -->
+      <id>test-jdk-21</id>
+      <activation>
+        <jdk>[21,)</jdk>
+      </activation>
+      <properties>
+        <!-- for DriverBlockHoundIntegrationIT when using JDK 13+, see https://github.com/reactor/BlockHound/issues/33 -->
+        <blockhound.argline>-XX:+AllowRedefinitionToAddDeleteMethods</blockhound.argline>
+        <!-- allow deep reflection for mockito when using JDK 17+, see https://stackoverflow.com/questions/70993863/mockito-can-not-mock-random-in-java-17 -->
+        <mockitoopens.argline>--add-opens=java.base/jdk.internal.util.random=ALL-UNNAMED</mockitoopens.argline>
       </properties>
     </profile>
   </profiles>

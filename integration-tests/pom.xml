@@ -23,7 +23,7 @@
   <parent>
     <groupId>org.apache.cassandra</groupId>
     <artifactId>java-driver-parent</artifactId>
-    <version>4.18.2-SNAPSHOT</version>
+    <version>4.19.4-SNAPSHOT</version>
   </parent>
   <artifactId>java-driver-integration-tests</artifactId>
   <packaging>jar</packaging>
@@ -129,7 +129,7 @@
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>org.lz4</groupId>
+      <groupId>at.yawk.lz4</groupId>
       <artifactId>lz4-java</artifactId>
       <scope>test</scope>
     </dependency>

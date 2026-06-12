@@ -36,25 +36,33 @@ public class NoopRequestTracker implements RequestTracker {
 
   @Override
   public void onSuccess(
-      long latencyNanos, @NonNull ExecutionInfo executionInfo, @NonNull String requestPrefix) {
+      long latencyNanos,
+      @NonNull ExecutionInfo executionInfo,
+      @NonNull String sessionRequestLogPrefix) {
     // nothing to do
   }
 
   @Override
   public void onError(
-      long latencyNanos, @NonNull ExecutionInfo executionInfo, @NonNull String requestPrefix) {
+      long latencyNanos,
+      @NonNull ExecutionInfo executionInfo,
+      @NonNull String sessionRequestLogPrefix) {
     // nothing to do
   }
 
   @Override
   public void onNodeError(
-      long latencyNanos, @NonNull ExecutionInfo executionInfo, @NonNull String requestPrefix) {
+      long latencyNanos,
+      @NonNull ExecutionInfo executionInfo,
+      @NonNull String nodeRequestLogPrefix) {
     // nothing to do
   }
 
   @Override
   public void onNodeSuccess(
-      long latencyNanos, @NonNull ExecutionInfo executionInfo, @NonNull String requestPrefix) {
+      long latencyNanos,
+      @NonNull ExecutionInfo executionInfo,
+      @NonNull String nodeRequestLogPrefix) {
     // nothing to do
   }
 

@@ -21,6 +21,62 @@ under the License.
 
 <!-- Note: contrary to 3.x, insert new entries *first* in their section -->
 
+### 4.19.3
+
+- [bug] CASSJAVA-3: Fix ordering of LIMIT and PER PARTITION LIMIT clauses
+- [bug] PR 2050: Fix race condition in ClockSeqAndNodeContainer
+- [improvement] CASSJAVA-108: Update ESRI (and remove org.json) dependencies
+- [improvement] PR 2076: Bump Jackson to 2.20.1
+- [improvement] PR 2047: Re-work ordering clause support in query builder
+- [improvement] PR 2051: Bump logback to 1.3.15, slf4j to 2.0.16
+- [improvement] CASSJAVA-113: Bump LZ4 to 1.10.1, Netty to 4.1.130.Final
+
+### 4.19.2
+
+- [bug] CASSJAVA-116: Retry or Speculative Execution with RequestIdGenerator throws "Duplicate Key"
+
+### 4.19.1
+
+- [improvement] CASSJAVA-97: Let users inject an ID for each request and write to the custom payload
+- [improvement] CASSJAVA-92: Add Local DC to driver connection info and provide visibility with nodetool clientstats
+- [bug] PR 2025: Eliminate lock in ConcurrencyLimitingRequestThrottler
+- [improvement] CASSJAVA-89: Fix deprecated table configs in Cassandra 5
+- [improvement] PR 2028: Remove unnecessary locking in DefaultNettyOptions
+- [improvement] CASSJAVA-102: Fix revapi spurious complaints about optional dependencies
+- [improvement] PR 2013: Add SubnetAddressTranslator
+- [improvement] CASSJAVA-68: Improve DefaultCodecRegistry.CacheKey#hashCode() to eliminate Object[] allocation
+- [improvement] PR 1989: Bump Jackson version to la(te)st 2.13.x, 2.13.5
+- [improvement] CASSJAVA-76: Make guava an optional dependency of java-driver-guava-shaded
+- [bug] PR 2035: Prevent long overflow in SNI address resolution
+- [improvement] CASSJAVA-77: 4.x: Upgrade Netty to 4.1.119
+- [improvement] CASSJAVA-40: Driver testing against Java 21
+- [improvement] CASSJAVA-90: Update native-protocol
+- [improvement] CASSJAVA-80: Support configuration to disable DNS reverse-lookups for SAN validation
+
+### 4.19.0
+
+- [bug] JAVA-3055: Prevent PreparedStatement cache to be polluted if a request is cancelled.
+- [bug] JAVA-3168: Copy node info for contact points on initial node refresh only from first match by endpoint
+- [improvement] JAVA-3143: Extend driver vector support to arbitrary subtypes and fix handling of variable length types (OSS C* 5.0)
+- [improvement] CASSJAVA-53: Update Guava version used in cassandra-java-driver
+- [improvement] JAVA-3118: Add support for vector data type in Schema Builder, QueryBuilder
+- [bug] CASSJAVA-55: Remove setting "Host" header for metadata requests
+- [bug] JAVA-3057: Allow decoding a UDT that has more fields than expected
+- [improvement] CASSJAVA-52: Bring java-driver-shaded-guava into the repo as a submodule
+- [bug] CASSJAVA-2: TableMetadata#describe produces invalid CQL when a type of a column is a vector
+- [bug] JAVA-3051: Memory leak in DefaultLoadBalancingPolicy measurement of response times
+- [improvement] CASSJAVA-14: Query builder support for NOT CQL syntax
+- [bug] CASSJAVA-12: DefaultSslEngineFactory missing null check on close
+- [improvement] CASSJAVA-46: Expose table extensions via schema builders
+- [bug] PR 1938: Fix uncaught exception during graceful channel shutdown after exceeding max orphan ids
+- [improvement] PR 1607: Annotate BatchStatement, Statement, SimpleStatement methods with CheckReturnValue
+- [improvement] CASSJAVA-41: Reduce lock held duration in ConcurrencyLimitingRequestThrottler
+- [bug] JAVA-3149: Async Query Cancellation Not Propagated To RequestThrottler
+- [bug] JAVA-3167: CompletableFutures.allSuccessful() may return never completed future
+- [bug] PR 1620: Don't return empty routing key when partition key is unbound
+- [improvement] PR 1623: Limit calls to Conversions.resolveExecutionProfile
+- [improvement] CASSJAVA-29: Update target Cassandra versions for integration tests, support new 5.0.x
+
 ### 4.18.1
 
 - [improvement] JAVA-3142: Ability to specify ordering of remote local dc's via new configuration for graceful automatic failovers

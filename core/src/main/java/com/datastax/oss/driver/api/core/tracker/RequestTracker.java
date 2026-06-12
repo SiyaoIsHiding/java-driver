@@ -189,8 +189,9 @@ public interface RequestTracker extends AutoCloseable {
       long latencyNanos,
       @NonNull DriverExecutionProfile executionProfile,
       @NonNull Node node,
-      @NonNull String requestLogPrefix) {
-    // delegate call to the old method
+      @NonNull String sessionRequestLogPrefix) {
+    // If client doesn't override onSuccess with sessionRequestLogPrefix delegate call to the old
+    // method
     onSuccess(request, latencyNanos, executionProfile, node);
   }
 
@@ -217,8 +218,8 @@ public interface RequestTracker extends AutoCloseable {
       long latencyNanos,
       @NonNull DriverExecutionProfile executionProfile,
       @Nullable Node node,
-      @NonNull String requestLogPrefix) {
-    // delegate call to the old method
+      @NonNull String sessionRequestLogPrefix) {
+    // If client doesn't override onError with requestLogPrefix delegate call to the old method
     onError(request, error, latencyNanos, executionProfile, node);
   }
 
@@ -245,8 +246,9 @@ public interface RequestTracker extends AutoCloseable {
       long latencyNanos,
       @NonNull DriverExecutionProfile executionProfile,
       @NonNull Node node,
-      @NonNull String requestLogPrefix) {
-    // delegate call to the old method
+      @NonNull String nodeRequestLogPrefix) {
+    // If client doesn't override onNodeError with nodeRequestLogPrefix delegate call to the old
+    // method
     onNodeError(request, error, latencyNanos, executionProfile, node);
   }
 
@@ -271,8 +273,9 @@ public interface RequestTracker extends AutoCloseable {
       long latencyNanos,
       @NonNull DriverExecutionProfile executionProfile,
       @NonNull Node node,
-      @NonNull String requestLogPrefix) {
-    // delegate call to the old method
+      @NonNull String nodeRequestLogPrefix) {
+    // If client doesn't override onNodeSuccess with requestLogPrefix delegate call to the old
+    // method
     onNodeSuccess(request, latencyNanos, executionProfile, node);
   }
 }

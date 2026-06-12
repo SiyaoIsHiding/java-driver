@@ -33,7 +33,9 @@ public class RequestNodeLoggerExample extends RequestLogger {
 
   @Override
   public void onNodeError(
-      long latencyNanos, @NonNull ExecutionInfo executionInfo, @NonNull String logPrefix) {
+      long latencyNanos,
+      @NonNull ExecutionInfo executionInfo,
+      @NonNull String nodeRequestLogPrefix) {
     DriverExecutionProfile executionProfile = executionInfo.getExecutionProfile();
     if (!executionProfile.getBoolean(DefaultDriverOption.REQUEST_LOGGER_ERROR_ENABLED)) {
       return;
@@ -61,12 +63,14 @@ public class RequestNodeLoggerExample extends RequestLogger {
         maxValues,
         maxValueLength,
         showStackTraces,
-        logPrefix);
+        nodeRequestLogPrefix);
   }
 
   @Override
   public void onNodeSuccess(
-      long latencyNanos, @NonNull ExecutionInfo executionInfo, @NonNull String logPrefix) {
+      long latencyNanos,
+      @NonNull ExecutionInfo executionInfo,
+      @NonNull String nodeRequestLogPrefix) {
     DriverExecutionProfile executionProfile = executionInfo.getExecutionProfile();
     boolean successEnabled =
         executionProfile.getBoolean(DefaultDriverOption.REQUEST_LOGGER_SUCCESS_ENABLED);
@@ -106,6 +110,6 @@ public class RequestNodeLoggerExample extends RequestLogger {
         showValues,
         maxValues,
         maxValueLength,
-        logPrefix);
+        nodeRequestLogPrefix);
   }
 }

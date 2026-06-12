@@ -77,12 +77,11 @@ public class PlatformInfoFinderTest {
         "com.fasterxml.jackson.core:jackson-annotations", withUnverifiedRuntimeVersion("2.8.11"));
     expected.put("com.fasterxml.jackson.core:jackson-core", withUnverifiedRuntimeVersion("2.8.11"));
     expected.put("io.netty:netty-handler", withUnverifiedRuntimeVersion("4.0.56.Final"));
-    expected.put("org.lz4:lz4-java", withUnverifiedRuntimeVersionOptional("1.4.1"));
+    expected.put("at.yawk.lz4:lz4-java", withUnverifiedRuntimeVersionOptional("1.10.1"));
     expected.put("org.hdrhistogram:HdrHistogram", withUnverifiedRuntimeVersionOptional("2.1.10"));
     expected.put("com.github.jnr:jffi", withUnverifiedRuntimeVersion("1.2.16"));
     expected.put("io.netty:netty-buffer", withUnverifiedRuntimeVersion("4.0.56.Final"));
     expected.put("org.ow2.asm:asm-commons", withUnverifiedRuntimeVersion("5.0.3"));
-    expected.put("org.json:json", withUnverifiedRuntimeVersion("20090211"));
     expected.put("org.ow2.asm:asm-util", withUnverifiedRuntimeVersion("5.0.3"));
     expected.put("com.github.jnr:jnr-ffi", withUnverifiedRuntimeVersion("2.1.7"));
 
@@ -91,7 +90,7 @@ public class PlatformInfoFinderTest {
         new PlatformInfoFinder(this::nullUrlProvider).fetchDependenciesFromFile(inputStream);
 
     // then
-    assertThat(stringStringMap).hasSize(28);
+    assertThat(stringStringMap).hasSize(27);
     assertThat(stringStringMap).isEqualTo(expected);
   }
 

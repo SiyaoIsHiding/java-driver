@@ -83,7 +83,9 @@ public class RequestLogger implements RequestTracker {
 
   @Override
   public void onSuccess(
-      long latencyNanos, @NonNull ExecutionInfo executionInfo, @NonNull String logPrefix) {
+      long latencyNanos,
+      @NonNull ExecutionInfo executionInfo,
+      @NonNull String sessionRequestLogPrefix) {
 
     DriverExecutionProfile executionProfile = executionInfo.getExecutionProfile();
     boolean successEnabled =
@@ -127,12 +129,14 @@ public class RequestLogger implements RequestTracker {
         showValues,
         maxValues,
         maxValueLength,
-        logPrefix);
+        sessionRequestLogPrefix);
   }
 
   @Override
   public void onError(
-      long latencyNanos, @NonNull ExecutionInfo executionInfo, @NonNull String logPrefix) {
+      long latencyNanos,
+      @NonNull ExecutionInfo executionInfo,
+      @NonNull String sessionRequestLogPrefix) {
 
     DriverExecutionProfile executionProfile = executionInfo.getExecutionProfile();
     if (!executionProfile.getBoolean(DefaultDriverOption.REQUEST_LOGGER_ERROR_ENABLED, false)) {
@@ -167,18 +171,22 @@ public class RequestLogger implements RequestTracker {
         maxValues,
         maxValueLength,
         showStackTraces,
-        logPrefix);
+        sessionRequestLogPrefix);
   }
 
   @Override
   public void onNodeError(
-      long latencyNanos, @NonNull ExecutionInfo executionInfo, @NonNull String logPrefix) {
+      long latencyNanos,
+      @NonNull ExecutionInfo executionInfo,
+      @NonNull String nodeRequestLogPrefix) {
     // Nothing to do
   }
 
   @Override
   public void onNodeSuccess(
-      long latencyNanos, @NonNull ExecutionInfo executionInfo, @NonNull String logPrefix) {
+      long latencyNanos,
+      @NonNull ExecutionInfo executionInfo,
+      @NonNull String nodeRequestLogPrefix) {
     // Nothing to do
   }
 

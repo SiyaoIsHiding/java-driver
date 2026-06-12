@@ -34,6 +34,7 @@ import com.datastax.oss.driver.internal.core.util.ArrayUtils;
 import com.datastax.oss.driver.internal.core.util.collection.QueryPlan;
 import com.datastax.oss.driver.internal.core.util.collection.SimpleQueryPlan;
 import com.datastax.oss.driver.shaded.guava.common.annotations.VisibleForTesting;
+import com.datastax.oss.driver.shaded.guava.common.collect.ImmutableMap;
 import com.datastax.oss.driver.shaded.guava.common.collect.MapMaker;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import edu.umd.cs.findbugs.annotations.Nullable;
@@ -241,13 +242,17 @@ public class DefaultLoadBalancingPolicy extends BasicLoadBalancingPolicy impleme
 
   @Override
   public void onNodeSuccess(
-      long latencyNanos, @NonNull ExecutionInfo executionInfo, @NonNull String logPrefix) {
+      long latencyNanos,
+      @NonNull ExecutionInfo executionInfo,
+      @NonNull String nodeRequestLogPrefix) {
     updateResponseTimes(executionInfo.getCoordinator());
   }
 
   @Override
   public void onNodeError(
-      long latencyNanos, @NonNull ExecutionInfo executionInfo, @NonNull String logPrefix) {
+      long latencyNanos,
+      @NonNull ExecutionInfo executionInfo,
+      @NonNull String nodeRequestLogPrefix) {
     updateResponseTimes(executionInfo.getCoordinator());
   }
 
@@ -340,5 +345,14 @@ public class DefaultLoadBalancingPolicy extends BasicLoadBalancingPolicy impleme
       long threshold = now - RESPONSE_COUNT_RESET_INTERVAL_NANOS;
       return this.oldest - threshold >= 0;
     }
+  }
+
+  @NonNull
+  @Override
+  public Map<String, ?> getStartupConfiguration() {
+    Map<String, ?> parent = super.getStartupConfiguration();
+    return ImmutableMap.of(
+        DefaultLoadBalancingPolicy.class.getSimpleName(),
+        parent.get(BasicLoadBalancingPolicy.class.getSimpleName()));
   }
 }

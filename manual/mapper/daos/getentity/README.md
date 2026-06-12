@@ -20,7 +20,7 @@ under the License.
 ## GetEntity methods
 
 Annotate a DAO method with [@GetEntity] to convert a core driver data structure into one or more
-[Entities](../../entities):
+[Entities](../../entities/README.md):
 
 ```java
 @Dao
@@ -108,7 +108,7 @@ The method can return:
 * a single entity instance. If the argument is a result set type, the generated code will extract
   the first row and convert it, or return `null` if the result set is empty.
 
-    ````java
+    ```java
     @GetEntity
     Product asProduct(Row row);
 
