@@ -58,9 +58,6 @@ jobs:
       - name: Build (skip tests)
         run: mvn -B -V install -DskipTests -Dmaven.javadoc.skip=true
 
-      # Maven, PATH and the forked test JVM must all use the same JDK: failsafe sets the
-      # fork's JAVA_HOME to the test JDK, and ccm refuses to start if JAVA_HOME and the
-      # java on PATH differ. ccm then falls back to JAVA{8,11,17}_HOME as Cassandra requires.
       - name: Set up JDK ${{ matrix.TEST_JAVA_VERSION }}
         uses: actions/setup-java@v5
         with:
@@ -76,6 +73,16 @@ jobs:
             -Dccm.dse=false \
             -Dmaven.test.failure.ignore=true \
             -Dmaven.javadoc.skip=true
+
+      - name: Check test results
+        run: |
+          failed=$(grep -lE '<testsuite[^>]* (failures|errors)="[1-9]' \
+            $(find . -path '*/target/*-reports/TEST-*.xml') /dev/null || true)
+          if [ -n "$failed" ]; then
+            echo "Test failures or errors in:"
+            echo "$failed"
+            exit 1
+          fi
 
       - name: Upload test results
         if: ${{ !cancelled() }}
