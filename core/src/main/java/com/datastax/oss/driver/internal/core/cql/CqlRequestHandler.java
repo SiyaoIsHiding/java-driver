@@ -291,9 +291,11 @@ public class CqlRequestHandler implements Throttled {
               .map((g) -> g.getDecoratedStatement(finalStatement, nodeRequestId))
               .orElse(finalStatement);
 
+      Message message = Conversions.toMessage(statement, executionProfile, context);
       NodeResponseCallback nodeResponseCallback =
           new NodeResponseCallback(
               statement,
+              message,
               node,
               queryPlan,
               channel,
@@ -301,7 +303,6 @@ public class CqlRequestHandler implements Throttled {
               retryCount,
               scheduleNextExecution,
               logPrefixJoiner.join(this.sessionName, nodeRequestId, currentExecutionIndex));
-      Message message = Conversions.toMessage(statement, executionProfile, context);
       channel
           .write(message, statement.isTracing(), statement.getCustomPayload(), nodeResponseCallback)
           .addListener(nodeResponseCallback);
@@ -345,7 +346,7 @@ public class CqlRequestHandler implements Throttled {
       ExecutionInfo executionInfo =
           buildExecutionInfo(callback, resultMessage, responseFrame, schemaInAgreement);
       AsyncResultSet resultSet =
-          Conversions.toResultSet(resultMessage, executionInfo, session, context);
+          Conversions.toResultSet(resultMessage, callback.message, executionInfo, session, context);
       if (result.complete(resultSet)) {
         cancelScheduledTasks();
         throttler.signalSuccess(this);
@@ -505,9 +506,12 @@ public class CqlRequestHandler implements Throttled {
     private final int retryCount;
     private final boolean scheduleNextExecution;
     private final String logPrefix;
+    // The message sent for this execution, that the response will answer
+    private final Message message;
 
     private NodeResponseCallback(
         Statement<?> statement,
+        Message message,
         Node node,
         Queue<Node> queryPlan,
         DriverChannel channel,
@@ -523,6 +527,7 @@ public class CqlRequestHandler implements Throttled {
       this.retryCount = retryCount;
       this.scheduleNextExecution = scheduleNextExecution;
       this.logPrefix = logPrefix;
+      this.message = message;
     }
 
     // this gets invoked once the write completes.

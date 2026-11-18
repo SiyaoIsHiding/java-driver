@@ -25,6 +25,7 @@ import static org.mockito.Mockito.when;
 
 import com.datastax.oss.driver.api.core.AllNodesFailedException;
 import com.datastax.oss.driver.api.core.CqlIdentifier;
+import com.datastax.oss.driver.api.core.DefaultProtocolVersion;
 import com.datastax.oss.driver.api.core.DriverTimeoutException;
 import com.datastax.oss.driver.api.core.NoNodeAvailableException;
 import com.datastax.oss.driver.api.core.NodeUnavailableException;
@@ -37,19 +38,26 @@ import com.datastax.oss.driver.api.core.cql.PreparedStatement;
 import com.datastax.oss.driver.api.core.cql.Row;
 import com.datastax.oss.driver.api.core.cql.Statement;
 import com.datastax.oss.driver.api.core.metadata.Node;
+import com.datastax.oss.driver.api.core.type.codec.registry.CodecRegistry;
 import com.datastax.oss.driver.internal.core.session.RepreparePayload;
 import com.datastax.oss.driver.internal.core.util.concurrent.CapturingTimer.CapturedTimeout;
+import com.datastax.oss.driver.shaded.guava.common.collect.ImmutableList;
 import com.datastax.oss.protocol.internal.request.Prepare;
 import com.datastax.oss.protocol.internal.response.error.Unprepared;
+import com.datastax.oss.protocol.internal.response.result.DefaultRows;
 import com.datastax.oss.protocol.internal.response.result.Prepared;
+import com.datastax.oss.protocol.internal.response.result.Rows;
+import com.datastax.oss.protocol.internal.response.result.RowsMetadata;
 import com.datastax.oss.protocol.internal.response.result.SetKeyspace;
 import com.datastax.oss.protocol.internal.util.Bytes;
 import java.nio.ByteBuffer;
 import java.time.Duration;
+import java.util.ArrayDeque;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -88,6 +96,68 @@ public class CqlRequestHandlerTest extends CqlRequestHandlerTestBase {
                 assertThat(executionInfo.getSpeculativeExecutionCount()).isEqualTo(0);
                 assertThat(executionInfo.getSuccessfulExecutionIndex()).isEqualTo(0);
                 assertThat(executionInfo.getWarnings()).isEmpty();
+              });
+    }
+  }
+
+  @Test
+  public void should_decode_skip_metadata_response_against_definitions_it_was_encoded_with() {
+    // A SKIP_METADATA response: one "message" column, decoded against the request's definitions
+    Queue<List<ByteBuffer>> data = new ArrayDeque<>();
+    data.add(ImmutableList.of(Bytes.fromHexString("0x68656C6C6F2C20776F726C64")));
+    Rows rowsWithoutMetadata = new DefaultRows(new RowsMetadata(1, null, new int[] {}, null), data);
+    RequestHandlerTestHarness.Builder harnessBuilder = RequestHandlerTestHarness.builder();
+    PoolBehavior node1Behavior = harnessBuilder.customBehavior(node1);
+    try (RequestHandlerTestHarness harness = harnessBuilder.build()) {
+
+      ColumnDefinitions oldDefinitions =
+          Conversions.toColumnDefinitions(((Rows) singleRow()).getMetadata(), harness.getContext());
+      DefaultPreparedStatement preparedStatement =
+          new DefaultPreparedStatement(
+              Bytes.fromHexString("0xAAAA"),
+              "SELECT message FROM ks.table WHERE k = ?",
+              DefaultColumnDefinitions.valueOf(Collections.emptyList()),
+              Collections.emptyList(),
+              Bytes.fromHexString("0x01"),
+              oldDefinitions,
+              null,
+              Collections.emptyMap(),
+              null,
+              null,
+              null,
+              null,
+              null,
+              Collections.emptyMap(),
+              null,
+              null,
+              null,
+              5000,
+              null,
+              null,
+              false,
+              CodecRegistry.DEFAULT,
+              DefaultProtocolVersion.V4);
+
+      CompletionStage<AsyncResultSet> resultSetFuture =
+          new CqlRequestHandler(
+                  preparedStatement.bind(), harness.getSession(), harness.getContext(), "test")
+              .handle();
+      node1Behavior.verifyWrite();
+
+      // While the request is in flight, a concurrent execution's response signals a schema change
+      // (CASSANDRA-10786) and replaces the prepared statement's result metadata
+      preparedStatement.setResultMetadata(
+          Bytes.fromHexString("0x02"), DefaultColumnDefinitions.valueOf(Collections.emptyList()));
+
+      node1Behavior.setWriteSuccess();
+      node1Behavior.setResponseSuccess(defaultFrameOf(rowsWithoutMetadata));
+
+      assertThatStage(resultSetFuture)
+          .isSuccess(
+              resultSet -> {
+                assertThat(resultSet.getColumnDefinitions()).isEqualTo(oldDefinitions);
+                assertThat(resultSet.currentPage().iterator().next().getString("message"))
+                    .isEqualTo("hello, world");
               });
     }
   }

@@ -66,6 +66,7 @@ import com.datastax.oss.driver.internal.core.ConsistencyLevelRegistry;
 import com.datastax.oss.driver.internal.core.DefaultProtocolFeature;
 import com.datastax.oss.driver.internal.core.ProtocolVersionRegistry;
 import com.datastax.oss.driver.internal.core.context.InternalDriverContext;
+import com.datastax.oss.driver.internal.core.cql.DefaultPreparedStatement.ResultMetadata;
 import com.datastax.oss.driver.internal.core.data.ValuesHelper;
 import com.datastax.oss.driver.shaded.guava.common.annotations.VisibleForTesting;
 import com.datastax.oss.driver.shaded.guava.common.collect.ImmutableList;
@@ -73,7 +74,6 @@ import com.datastax.oss.driver.shaded.guava.common.primitives.Ints;
 import com.datastax.oss.protocol.internal.Message;
 import com.datastax.oss.protocol.internal.ProtocolConstants;
 import com.datastax.oss.protocol.internal.request.Batch;
-import com.datastax.oss.protocol.internal.request.Execute;
 import com.datastax.oss.protocol.internal.request.Query;
 import com.datastax.oss.protocol.internal.request.query.QueryOptions;
 import com.datastax.oss.protocol.internal.response.Error;
@@ -92,6 +92,7 @@ import com.datastax.oss.protocol.internal.response.result.RowsMetadata;
 import com.datastax.oss.protocol.internal.util.Bytes;
 import com.datastax.oss.protocol.internal.util.collection.NullAllowingImmutableList;
 import com.datastax.oss.protocol.internal.util.collection.NullAllowingImmutableMap;
+import edu.umd.cs.findbugs.annotations.Nullable;
 import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -185,8 +186,9 @@ public class Conversions {
           protocolVersion, DefaultProtocolFeature.UNSET_BOUND_VALUES)) {
         ensureAllSet(boundStatement);
       }
-      boolean skipMetadata =
-          boundStatement.getPreparedStatement().getResultSetDefinitions().size() > 0;
+      PreparedStatement preparedStatement = boundStatement.getPreparedStatement();
+      ResultMetadata resultMetadata = ResultMetadata.of(preparedStatement);
+      boolean skipMetadata = resultMetadata.getResultSetDefinitions().size() > 0;
       QueryOptions queryOptions =
           new QueryOptions(
               consistencyCode,
@@ -199,13 +201,13 @@ public class Conversions {
               timestamp,
               null,
               nowInSeconds);
-      PreparedStatement preparedStatement = boundStatement.getPreparedStatement();
       ByteBuffer id = preparedStatement.getId();
-      ByteBuffer resultMetadataId = preparedStatement.getResultMetadataId();
-      return new Execute(
+      ByteBuffer resultMetadataId = resultMetadata.getResultMetadataId();
+      return new BoundExecute(
           Bytes.getArray(id),
           (resultMetadataId == null) ? null : Bytes.getArray(resultMetadataId),
-          queryOptions);
+          queryOptions,
+          resultMetadata.getResultSetDefinitions());
     } else if (statement instanceof BatchStatement) {
       BatchStatement batchStatement = (BatchStatement) statement;
       if (!protocolVersionRegistry.supports(
@@ -321,10 +323,23 @@ public class Conversions {
       ExecutionInfo executionInfo,
       CqlSession session,
       InternalDriverContext context) {
+    return toResultSet(result, null, executionInfo, session, context);
+  }
+
+  /**
+   * @param request the message that {@code result} responds to. If it is a {@link BoundExecute}, a
+   *     response without metadata is decoded against the definitions it was encoded with.
+   */
+  public static AsyncResultSet toResultSet(
+      Result result,
+      @Nullable Message request,
+      ExecutionInfo executionInfo,
+      CqlSession session,
+      InternalDriverContext context) {
     if (result instanceof Rows) {
       Rows rows = (Rows) result;
       Statement<?> statement = (Statement<?>) executionInfo.getRequest();
-      ColumnDefinitions columnDefinitions = getResultDefinitions(rows, statement, context);
+      ColumnDefinitions columnDefinitions = getResultDefinitions(rows, request, statement, context);
       return new DefaultAsyncResultSet(
           columnDefinitions, executionInfo, rows.getData(), session, context);
     } else if (result instanceof Prepared) {
@@ -338,12 +353,36 @@ public class Conversions {
 
   public static ColumnDefinitions getResultDefinitions(
       Rows rows, Statement<?> statement, InternalDriverContext context) {
+    return getResultDefinitions(rows, null, statement, context);
+  }
+
+  /**
+   * @param request the message that {@code rows} responds to. If it is a {@link BoundExecute}, a
+   *     response without metadata is decoded against the definitions it was encoded with.
+   */
+  public static ColumnDefinitions getResultDefinitions(
+      Rows rows, @Nullable Message request, Statement<?> statement, InternalDriverContext context) {
     RowsMetadata rowsMetadata = rows.getMetadata();
     if (rowsMetadata.columnSpecs.isEmpty()) {
       // If the response has no metadata, it means the request had SKIP_METADATA set, the driver
-      // only ever does that for bound statements.
-      BoundStatement boundStatement = (BoundStatement) statement;
-      return boundStatement.getPreparedStatement().getResultSetDefinitions();
+      // only ever does that for bound statements. Decode against the definitions that the request
+      // was encoded with: the prepared statement's copy might have been replaced since by a
+      // concurrent execution's CASSANDRA-10786 update.
+      ColumnDefinitions definitions =
+          (request instanceof BoundExecute)
+              ? ((BoundExecute) request).getResultSetDefinitions()
+              : ((BoundStatement) statement).getPreparedStatement().getResultSetDefinitions();
+      // The server still sends the column count. If it doesn't match, decoding the rows against
+      // these definitions would silently shift or corrupt values, so fail fast instead.
+      if (definitions.size() != rowsMetadata.columnCount) {
+        throw new IllegalStateException(
+            String.format(
+                "Received a response without metadata for %d columns, but the prepared "
+                    + "statement's result metadata has %d columns "
+                    + "(it might have changed concurrently, see CASSANDRA-10786)",
+                rowsMetadata.columnCount, definitions.size()));
+      }
+      return definitions;
     } else {
       // The response has metadata, always use it above anything else we might have locally.
       ColumnDefinitions definitions = toColumnDefinitions(rowsMetadata, context);

@@ -38,9 +38,10 @@ import com.datastax.oss.driver.internal.core.ConsistencyLevelRegistry;
 import com.datastax.oss.driver.internal.core.DefaultProtocolFeature;
 import com.datastax.oss.driver.internal.core.ProtocolVersionRegistry;
 import com.datastax.oss.driver.internal.core.context.InternalDriverContext;
+import com.datastax.oss.driver.internal.core.cql.BoundExecute;
 import com.datastax.oss.driver.internal.core.cql.Conversions;
+import com.datastax.oss.driver.internal.core.cql.DefaultPreparedStatement.ResultMetadata;
 import com.datastax.oss.protocol.internal.Message;
-import com.datastax.oss.protocol.internal.request.Execute;
 import com.datastax.oss.protocol.internal.request.Query;
 import com.datastax.oss.protocol.internal.response.Error;
 import com.datastax.oss.protocol.internal.util.Bytes;
@@ -115,8 +116,9 @@ public class DseConversions {
           protocolVersion, DefaultProtocolFeature.UNSET_BOUND_VALUES)) {
         Conversions.ensureAllSet(boundStatement);
       }
-      boolean skipMetadata =
-          boundStatement.getPreparedStatement().getResultSetDefinitions().size() > 0;
+      PreparedStatement preparedStatement = boundStatement.getPreparedStatement();
+      ResultMetadata resultMetadata = ResultMetadata.of(preparedStatement);
+      boolean skipMetadata = resultMetadata.getResultSetDefinitions().size() > 0;
       DseQueryOptions queryOptions =
           new DseQueryOptions(
               consistencyCode,
@@ -130,13 +132,13 @@ public class DseConversions {
               null,
               pageSizeInBytes,
               options);
-      PreparedStatement preparedStatement = boundStatement.getPreparedStatement();
       ByteBuffer id = preparedStatement.getId();
-      ByteBuffer resultMetadataId = preparedStatement.getResultMetadataId();
-      return new Execute(
+      ByteBuffer resultMetadataId = resultMetadata.getResultMetadataId();
+      return new BoundExecute(
           Bytes.getArray(id),
           (resultMetadataId == null) ? null : Bytes.getArray(resultMetadataId),
-          queryOptions);
+          queryOptions,
+          resultMetadata.getResultSetDefinitions());
     } else {
       throw new IllegalArgumentException(
           "Unsupported statement type: " + statement.getClass().getName());

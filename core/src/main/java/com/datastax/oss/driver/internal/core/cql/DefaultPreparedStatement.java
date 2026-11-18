@@ -152,6 +152,11 @@ public class DefaultPreparedStatement implements PreparedStatement {
     this.resultMetadata = new ResultMetadata(newResultMetadataId, newResultSetDefinitions);
   }
 
+  /** Returns the id+definitions pair currently in effect, in a single volatile read. */
+  ResultMetadata getCurrentResultMetadata() {
+    return this.resultMetadata;
+  }
+
   @NonNull
   @Override
   public BoundStatement bind(@NonNull Object... values) {
@@ -210,13 +215,35 @@ public class DefaultPreparedStatement implements PreparedStatement {
     return this.repreparePayload;
   }
 
-  private static class ResultMetadata {
-    private ByteBuffer resultMetadataId;
-    private ColumnDefinitions resultSetDefinitions;
+  public static class ResultMetadata {
+
+    /** The result metadata that {@code preparedStatement} currently holds. */
+    @NonNull
+    public static ResultMetadata of(@NonNull PreparedStatement preparedStatement) {
+      if (preparedStatement instanceof DefaultPreparedStatement) {
+        // Single volatile read, the id and definitions are guaranteed to match
+        return ((DefaultPreparedStatement) preparedStatement).getCurrentResultMetadata();
+      }
+      // Other implementations only expose the two getters, so a concurrent update could land
+      // between them (Conversions.getResultDefinitions checks the column count when decoding)
+      return new ResultMetadata(
+          preparedStatement.getResultMetadataId(), preparedStatement.getResultSetDefinitions());
+    }
+
+    private final ByteBuffer resultMetadataId;
+    private final ColumnDefinitions resultSetDefinitions;
 
     private ResultMetadata(ByteBuffer resultMetadataId, ColumnDefinitions resultSetDefinitions) {
       this.resultMetadataId = resultMetadataId;
       this.resultSetDefinitions = resultSetDefinitions;
+    }
+
+    public ByteBuffer getResultMetadataId() {
+      return resultMetadataId;
+    }
+
+    public ColumnDefinitions getResultSetDefinitions() {
+      return resultSetDefinitions;
     }
   }
 }
